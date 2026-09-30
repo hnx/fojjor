@@ -1,0 +1,2442 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title></title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #122018; }
+    body { touch-action: none; }
+    #game { display: block; width: 100vw; height: 100vh; }
+    #hud { position: fixed; inset: 0; pointer-events: none; }
+    #crosshair { position: absolute; left: 50%; top: 50%; width: 11px; height: 11px; transform: translate(-50%,-50%); opacity: .3; }
+    #crosshair::before, #crosshair::after { content: ""; position: absolute; background: rgba(238,244,232,.72); }
+    #crosshair::before { width: 1px; height: 11px; left: 5px; top: 0; }
+    #crosshair::after { height: 1px; width: 11px; top: 5px; left: 0; }
+    #joystick { display: none; position: absolute; left: 16px; bottom: max(16px, env(safe-area-inset-bottom)); width: 88px; height: 88px; border: 1px solid rgba(220,234,216,.26); border-radius: 50%; background: rgba(12,22,18,.18); box-shadow: inset 0 0 0 7px rgba(255,255,255,.018), 0 6px 16px rgba(0,0,0,.22); pointer-events: auto; }
+    #knob { position: absolute; left: 50%; top: 50%; width: 36px; height: 36px; transform: translate(-50%,-50%); border-radius: 50%; background: rgba(203,223,200,.74); border: 1px solid rgba(255,255,255,.55); box-shadow: 0 3px 10px rgba(0,0,0,.28); z-index: 1; }
+    .hand-joystick { display: block; position: absolute; bottom: max(16px, env(safe-area-inset-bottom)); width: 82px; height: 82px; border: 1px solid rgba(220,234,216,.28); border-radius: 50%; background: rgba(12,22,18,.2); box-shadow: inset 0 0 0 6px rgba(255,255,255,.018), 0 6px 16px rgba(0,0,0,.22); pointer-events: auto; }
+    #left-hand-joystick { left: 120px; }
+    #right-hand-joystick { right: 16px; }
+    .hand-knob { position: absolute; left: 50%; top: 50%; width: 32px; height: 32px; transform: translate(-50%,-50%); border-radius: 50%; background: rgba(203,223,200,.76); border: 1px solid rgba(255,255,255,.55); box-shadow: 0 3px 10px rgba(0,0,0,.28); z-index: 1; }
+    .hand-label { position: absolute; left: 50%; bottom: -17px; transform: translateX(-50%); color: rgba(239,244,232,.68); font: 700 8px/1 system-ui, sans-serif; letter-spacing: .12em; white-space: nowrap; text-shadow: 0 1px 3px #111; }
+    #movement-actions { position: absolute; right: 112px; bottom: max(18px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(2, 64px); gap: 6px; pointer-events: auto; }
+    .movement-action { appearance: none; min-width: 64px; min-height: 34px; border: 1px solid rgba(220,234,216,.3); border-radius: 9px; padding: 7px 5px; background: rgba(12,22,18,.58); color: #edf2df; font: 800 9px/1 system-ui, sans-serif; letter-spacing: .08em; cursor: pointer; box-shadow: 0 5px 14px rgba(0,0,0,.2); }
+    .movement-action.active { background: rgba(87, 158, 119, .62); border-color: rgba(175, 232, 184, .86); color: #fffbdc; }
+    .movement-action:active { transform: translateY(1px); }
+    #welcome { position: fixed; inset: 0; display: grid; place-items: center; background: #141c1d; z-index: 6; transition: opacity .45s ease, visibility .45s ease; }
+    #welcome.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    #welcome .welcome-card { display: grid; justify-items: center; gap: 18px; }
+    #welcome .welcome-title { color: #f0eee1; font: 700 clamp(24px, 4vw, 42px)/1.05 Georgia, serif; letter-spacing: .025em; }
+    #enter { appearance: none; border: 1px solid rgba(236,235,218,.38); border-radius: 999px; padding: 11px 22px; background: rgba(234,234,214,.94); color: #202724; font: 800 11px/1 system-ui, sans-serif; letter-spacing: .14em; cursor: pointer; }
+    #enter:active { transform: translateY(1px); }
+    #loading { position: fixed; inset: 0; display: grid; place-items: center; background: #20282a; color: #e8e9df; z-index: 5; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .35s ease, visibility .35s ease; font: 15px/1 system-ui, sans-serif; letter-spacing: .08em; }
+    #loading.active { opacity: 1; visibility: visible; pointer-events: auto; }
+    #loading.done { opacity: 0; visibility: hidden; pointer-events: none; }
+    #loading .label { transform: translateY(-2px); }
+    #settings-button { position: absolute; top: 16px; right: 16px; width: 42px; height: 42px; border: 1px solid rgba(220,234,216,.34); border-radius: 50%; background: rgba(12,22,18,.48); color: #e9eddd; font: 22px/1 system-ui, sans-serif; cursor: pointer; pointer-events: auto; box-shadow: 0 5px 16px rgba(0,0,0,.25); }
+    #settings-button:active { transform: translateY(1px) rotate(12deg); }
+    #settings-panel { display: none; position: absolute; top: 66px; right: 16px; width: min(350px, calc(100vw - 32px)); max-height: calc(100vh - 84px); overflow-y: auto; padding: 18px; border: 1px solid rgba(220,234,216,.28); border-radius: 18px; background: linear-gradient(145deg, rgba(22,35,30,.98), rgba(12,22,19,.97)); color: #e9eddd; box-shadow: 0 16px 38px rgba(0,0,0,.42); pointer-events: auto; }
+    #settings-panel.open { display: block; }
+    .settings-view { display: grid; gap: 14px; }
+    .settings-view[hidden] { display: none; }
+    .settings-window-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding-bottom: 4px; }
+    .settings-window-title { display: grid; gap: 5px; }
+    .settings-window-title strong { color: #f0f2df; font: 700 19px/1.05 Georgia, serif; letter-spacing: .01em; }
+    .settings-window-title span { color: rgba(239,244,232,.52); font: 10px/1.35 system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+    .settings-icon-button { appearance: none; flex: 0 0 auto; width: 30px; height: 30px; border: 1px solid rgba(220,234,216,.25); border-radius: 50%; background: rgba(214,224,198,.08); color: #e9eddd; font: 16px/1 system-ui, sans-serif; cursor: pointer; }
+    .settings-icon-button:hover { background: rgba(214,224,198,.18); border-color: rgba(220,234,216,.5); }
+    .settings-category-list { display: grid; gap: 9px; }
+    .settings-category { appearance: none; display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; padding: 13px 14px; border: 1px solid rgba(220,234,216,.2); border-radius: 12px; background: rgba(214,224,198,.07); color: #f0f2df; text-align: left; cursor: pointer; }
+    .settings-category:hover { background: rgba(214,224,198,.14); border-color: rgba(175,232,184,.56); transform: translateY(-1px); }
+    .settings-category:active { transform: translateY(1px); }
+    .settings-category-copy { display: grid; gap: 4px; }
+    .settings-category-title { font: 800 11px/1 system-ui, sans-serif; letter-spacing: .09em; text-transform: uppercase; }
+    .settings-category-note { color: rgba(239,244,232,.52); font: 10px/1.3 system-ui, sans-serif; letter-spacing: .01em; }
+    .settings-category-arrow { color: #b8d6a9; font: 22px/1 system-ui, sans-serif; }
+    .settings-back { appearance: none; display: inline-flex; align-items: center; gap: 6px; width: fit-content; padding: 0; border: 0; background: transparent; color: #b8d6a9; font: 800 9px/1 system-ui, sans-serif; letter-spacing: .13em; text-transform: uppercase; cursor: pointer; }
+    .settings-back:hover { color: #fff4bd; }
+    .settings-section { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid rgba(220,234,216,.16); }
+    .settings-section:first-child { padding-top: 0; border-top: 0; }
+    .settings-heading { color: rgba(218,232,210,.68); font: 800 9px/1 system-ui, sans-serif; letter-spacing: .16em; }
+    .settings-note { color: rgba(239,244,232,.58); font: 11px/1.45 system-ui, sans-serif; }
+    .settings-field { display: grid; gap: 6px; color: rgba(239,244,232,.72); font: 700 9px/1 system-ui, sans-serif; letter-spacing: .12em; }
+    #weather-select, #doll-size-target, #hand-side-select, #hand-size-target, #pov-select { width: 100%; border: 1px solid rgba(220,234,216,.3); border-radius: 9px; padding: 9px 8px; background: rgba(214,224,198,.12); color: #f0f2df; font: 700 11px/1 system-ui, sans-serif; cursor: pointer; }
+    #weather-select option, #doll-size-target option, #hand-side-select option, #hand-size-target option, #pov-select option { background: #17221e; color: #f0f2df; }
+    .settings-range-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .settings-range-value { color: #d6e8c9; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+    #player-height, #hand-size, #walk-speed, #run-speed, #crouch-speed, #jump-height, #gravity, #pov-distance, #fov-range, #doll-size { width: 100%; accent-color: #a6c89d; cursor: pointer; }
+    .settings-toggle { appearance: none; width: 100%; border: 1px solid rgba(220,234,216,.3); border-radius: 9px; padding: 9px 7px; background: rgba(214,224,198,.12); color: #f0f2df; font: 800 10px/1 system-ui, sans-serif; letter-spacing: .1em; cursor: pointer; }
+    .settings-toggle.on { background: rgba(87, 158, 119, .42); border-color: rgba(151, 226, 173, .72); }
+    .settings-toggle:active { background: rgba(214,224,198,.27); transform: translateY(1px); }
+    .social-links { display: grid; gap: 6px; }
+    .social-links a { color: #d6e8c9; font: 600 11px/1.2 system-ui, sans-serif; text-decoration: none; }
+    .social-links a:hover { color: #fff4bd; text-decoration: underline; }
+    .settings-subsection { display: grid; gap: 9px; padding: 12px; border: 1px solid rgba(220,234,216,.14); border-radius: 12px; background: rgba(214,224,198,.045); }
+    .settings-subsection-title { color: #e8edda; font: 800 10px/1 system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+    .settings-subsection-note { color: rgba(239,244,232,.52); font: 10px/1.4 system-ui, sans-serif; }
+    #zu-drag-toggle { appearance: none; width: 100%; border: 1px solid rgba(220,234,216,.3); border-radius: 9px; padding: 9px 7px; background: rgba(214,224,198,.12); color: #f0f2df; font: 800 10px/1 system-ui, sans-serif; letter-spacing: .1em; cursor: pointer; }
+    #zu-drag-toggle.on { background: rgba(87, 158, 119, .42); border-color: rgba(151, 226, 173, .72); }
+    #zu-drag-toggle:active { background: rgba(214,224,198,.27); transform: translateY(1px); }
+    @media (pointer: coarse) { #joystick, .hand-joystick { display: block; } }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="hud">
+    <div id="crosshair"></div>
+    <div id="joystick"><div id="knob"></div></div>
+    <div id="left-hand-joystick" class="hand-joystick"><div id="left-hand-knob" class="hand-knob"></div><div class="hand-label">LEFT HAND</div></div>
+    <div id="right-hand-joystick" class="hand-joystick"><div id="right-hand-knob" class="hand-knob"></div><div class="hand-label">RIGHT HAND</div></div>
+    <div id="movement-actions" aria-label="Movement controls">
+      <button id="sprint-action" class="movement-action" aria-pressed="false">SPRINT</button>
+      <button id="crouch-action" class="movement-action" aria-pressed="false">CROUCH</button>
+      <button id="jump-action" class="movement-action" aria-pressed="false">JUMP</button>
+      <button id="fly-action" class="movement-action" aria-pressed="false">FLY</button>
+    </div>
+    <button id="settings-button" aria-label="Open settings" title="Settings">⚙</button>
+    <div id="settings-panel" aria-label="Game settings">
+      <div class="settings-view" data-settings-view="home">
+        <div class="settings-window-header">
+          <div class="settings-window-title"><strong>Settings</strong><span>Choose a category</span></div>
+          <button class="settings-icon-button" data-settings-close aria-label="Close settings">×</button>
+        </div>
+        <div class="settings-category-list">
+          <button class="settings-category" data-settings-view-target="game-settings"><span class="settings-category-copy"><span class="settings-category-title">Game Settings</span><span class="settings-category-note">Controls, dolls, weather, and events</span></span><span class="settings-category-arrow">›</span></button>
+          <button class="settings-category" data-settings-view-target="credits"><span class="settings-category-copy"><span class="settings-category-title">Credits</span><span class="settings-category-note">The people behind Prison of Dolls</span></span><span class="settings-category-arrow">›</span></button>
+          <button class="settings-category" data-settings-view-target="connect"><span class="settings-category-copy"><span class="settings-category-title">Connect With Us</span><span class="settings-category-note">Follow the project online</span></span><span class="settings-category-arrow">›</span></button>
+        </div>
+      </div>
+
+      <div class="settings-view" data-settings-view="game-settings" hidden>
+        <div class="settings-window-header">
+          <div class="settings-window-title"><strong>Game Settings</strong><span>Organized by mechanic</span></div>
+          <button class="settings-back" data-settings-view-target="home">‹&nbsp; Back</button>
+        </div>
+        <div class="settings-category-list">
+          <button class="settings-category" data-settings-view-target="controls"><span class="settings-category-copy"><span class="settings-category-title">Game Controls</span><span class="settings-category-note">Player settings, movement, and camera</span></span><span class="settings-category-arrow">›</span></button>
+          <button class="settings-category" data-settings-view-target="objects"><span class="settings-category-copy"><span class="settings-category-title">Object Settings</span><span class="settings-category-note">Doll settings and size controls</span></span><span class="settings-category-arrow">›</span></button>
+          <button class="settings-category" data-settings-view-target="triggers"><span class="settings-category-copy"><span class="settings-category-title">Trigger Events</span><span class="settings-category-note">Weather modes and doll chase</span></span><span class="settings-category-arrow">›</span></button>
+        </div>
+      </div>
+
+      <div class="settings-view" data-settings-view="controls" hidden>
+        <div class="settings-window-header">
+          <div class="settings-window-title"><strong>Game Controls</strong><span>Player Settings</span></div>
+          <button class="settings-back" data-settings-view-target="game-settings">‹&nbsp; Game Settings</button>
+        </div>
+        <section class="settings-section">
+          <div class="settings-subsection">
+            <div class="settings-subsection-title">Player Settings</div>
+            <label class="settings-field" for="player-height"><span class="settings-range-row"><span>PLAYER HEIGHT</span><span id="player-height-value" class="settings-range-value">1.90 m</span></span><input id="player-height" type="range" min="1.70" max="2.20" step="0.01" value="1.90" aria-label="Player height" /></label>
+            <label class="settings-field" for="hand-side-select">HAND SIDE
+              <select id="hand-side-select" aria-label="Hand side"><option value="left">Left Hand</option><option value="right">Right Hand</option></select>
+            </label>
+            <label class="settings-field" for="hand-size-target">HAND TO SCALE
+              <select id="hand-size-target" aria-label="Hand to scale"><option value="left">Left Hand</option><option value="right">Right Hand</option><option value="both">Both Hands</option></select>
+            </label>
+            <label class="settings-field" for="hand-size"><span class="settings-range-row"><span>HAND SIZE</span><span id="hand-size-value" class="settings-range-value">100%</span></span><input id="hand-size" type="range" min="0.65" max="1.45" step="0.01" value="1.00" aria-label="Hand size" /></label>
+            <div class="settings-heading">MOVEMENT</div>
+            <label class="settings-field" for="walk-speed"><span class="settings-range-row"><span>WALK SPEED</span><span id="walk-speed-value" class="settings-range-value">5.6</span></span><input id="walk-speed" type="range" min="1" max="9" step="0.1" value="5.6" aria-label="Walk speed" /></label>
+            <label class="settings-field" for="run-speed"><span class="settings-range-row"><span>RUN SPEED</span><span id="run-speed-value" class="settings-range-value">9.5</span></span><input id="run-speed" type="range" min="3" max="16" step="0.1" value="9.5" aria-label="Run speed" /></label>
+            <label class="settings-field" for="crouch-speed"><span class="settings-range-row"><span>CROUCH WALK SPEED</span><span id="crouch-speed-value" class="settings-range-value">2.8</span></span><input id="crouch-speed" type="range" min="0.5" max="6" step="0.1" value="2.8" aria-label="Crouch walking speed" /></label>
+            <label class="settings-field" for="jump-height"><span class="settings-range-row"><span>JUMP HEIGHT</span><span id="jump-height-value" class="settings-range-value">1.30 m</span></span><input id="jump-height" type="range" min="0.25" max="4" step="0.05" value="1.30" aria-label="Jump height" /></label>
+            <label class="settings-field" for="gravity"><span class="settings-range-row"><span>GRAVITY</span><span id="gravity-value" class="settings-range-value">16.0</span></span><input id="gravity" type="range" min="4" max="30" step="0.5" value="16" aria-label="Gravity" /></label>
+            <button id="toggle-crouch" class="settings-toggle on" aria-pressed="true">CROUCH: ON</button>
+            <button id="toggle-sprint" class="settings-toggle on" aria-pressed="true">SPRINT: ON</button>
+            <button id="toggle-jump" class="settings-toggle on" aria-pressed="true">JUMP: ON</button>
+            <button id="toggle-fly" class="settings-toggle" aria-pressed="false">FLY AROUND: OFF</button>
+            <button id="toggle-crawl" class="settings-toggle" aria-pressed="false">CRAWL MODE: OFF</button>
+            <button id="zu-drag-toggle" aria-pressed="false">DRAG MODE: OFF</button>
+          </div>
+          <div class="settings-subsection">
+            <div class="settings-subsection-title">Camera</div>
+            <label class="settings-field" for="pov-select">POINT OF VIEW
+              <select id="pov-select" aria-label="Point of view"><option value="first">First Person</option><option value="third">Third Person</option></select>
+            </label>
+            <label class="settings-field" for="pov-distance"><span class="settings-range-row"><span>POV DISTANCE</span><span id="pov-distance-value" class="settings-range-value">4.5 m</span></span><input id="pov-distance" type="range" min="2" max="12" step="0.1" value="4.5" aria-label="Point of view distance" /></label>
+            <label class="settings-field" for="fov-range"><span class="settings-range-row"><span>FOV</span><span id="fov-value" class="settings-range-value">72°</span></span><input id="fov-range" type="range" min="45" max="105" step="1" value="72" aria-label="Field of view" /></label>
+            <div class="settings-note">Third Person uses POV Distance. Adjust FOV for a wider or closer-feeling view.</div>
+          </div>
+        </section>
+      </div>
+
+      <div class="settings-view" data-settings-view="objects" hidden>
+        <div class="settings-window-header">
+          <div class="settings-window-title"><strong>Object Settings</strong><span>Doll Settings</span></div>
+          <button class="settings-back" data-settings-view-target="game-settings">‹&nbsp; Game Settings</button>
+        </div>
+        <section class="settings-section"><div class="settings-subsection">
+          <div class="settings-subsection-title">Doll Settings</div>
+          <div class="settings-subsection-note">Resize one doll or both dolls. doll_2 supports a larger range for clearer scale changes.</div>
+          <label class="settings-field" for="doll-size-target">APPLY SIZE TO
+            <select id="doll-size-target" aria-label="Dolls to resize"><option value="all">All Dolls</option><option value="doll_1">doll_1</option><option value="doll_2">doll_2</option><option value="doll_3">doll_3</option></select>
+          </label>
+          <label class="settings-field" for="doll-size"><span class="settings-range-row"><span>DOLL SIZE</span><span id="doll-size-value" class="settings-range-value">100%</span></span><input id="doll-size" type="range" min="0.50" max="3.00" step="0.05" value="1.00" aria-label="Doll size" /></label>
+        </div></section>
+      </div>
+
+      <div class="settings-view" data-settings-view="triggers" hidden>
+        <div class="settings-window-header">
+          <div class="settings-window-title"><strong>Trigger Events</strong><span>Weather Modes &amp; Doll Chase</span></div>
+          <button class="settings-back" data-settings-view-target="game-settings">‹&nbsp; Game Settings</button>
+        </div>
+        <section class="settings-section">
+          <div class="settings-subsection"><div class="settings-subsection-title">Weather Modes</div>
+            <label class="settings-field" for="weather-select">WEATHER
+              <select id="weather-select" aria-label="Weather"><option value="day">Day Time</option><option value="noon">Noon</option><option value="rain">Raining</option><option value="storm">Raining &amp; Thunderstorm</option><option value="snow">Snowing</option><option value="bright">Bright Sun</option><option value="blood">Blood Moon</option></select>
+            </label>
+          </div>
+          <div class="settings-subsection"><div class="settings-subsection-title">Doll Chase</div>
+            <button id="dolls-chase-toggle" class="settings-toggle" aria-pressed="false">ALL DOLLS CHASE: OFF</button>
+            <div class="settings-note">Safe Mode keeps the dolls moving toward you without damage. Dolls settle into a safe ring around the player.</div>
+            <div class="settings-heading">CHASE TYPE</div><button class="settings-toggle on" aria-pressed="true">SAFE MODE: ON</button>
+          </div>
+        </section>
+      </div>
+
+      <div class="settings-view" data-settings-view="credits" hidden>
+        <div class="settings-window-header"><div class="settings-window-title"><strong>Credits</strong><span>Prison of Dolls</span></div><button class="settings-back" data-settings-view-target="home">‹&nbsp; Back</button></div>
+        <section class="settings-section"><div class="settings-note">Game by fojjor</div></section>
+      </div>
+
+      <div class="settings-view" data-settings-view="connect" hidden>
+        <div class="settings-window-header"><div class="settings-window-title"><strong>Connect With Us</strong><span>Follow the project online</span></div><button class="settings-back" data-settings-view-target="home">‹&nbsp; Back</button></div>
+        <section class="settings-section"><div class="social-links"><a href="https://youtube.com/@fojjor" target="_blank" rel="noopener">YouTube.com/@fojjor</a><a href="https://instagram.com/fojjor" target="_blank" rel="noopener">Instagram.com/fojjor</a><a href="https://fojjor.itch.io" target="_blank" rel="noopener">fojjor.itch.io</a><a href="https://x.com/fojjor" target="_blank" rel="noopener">X.com/fojjor</a></div></section>
+      </div>
+    </div>
+  </div>
+  <div id="welcome"><div class="welcome-card"><div class="welcome-title">Prison of Dolls — fojjor</div><button id="enter">ENTER</button></div></div>
+  <div id="loading"><div class="label">loading...</div></div>
+
+  <script>
+/* Asset loader: big embedded assets live in assets/assets-XX.js (each <= 24 MB) and are reassembled here. */
+(function () {
+  var A = window.__A = {};
+  window.__add = function (k, p, c) { var a = A[k] || (A[k] = { p: p, c: [] }); a.c.push(c); };
+  window.__asset = function (k) { var a = A[k]; if (!a) throw new Error('Missing game asset ' + k + ' (is the assets folder next to this file?)'); return a.p + a.c.join(''); };
+})();
+</script>
+<script src="assets/assets-01.js"></script>
+<script src="assets/assets-02.js"></script>
+<script src="assets/assets-03.js"></script>
+<script src="assets/assets-04.js"></script>
+<script src="assets/assets-05.js"></script>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.185.1/build/three.module.js"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    import { USDLoader } from "https://unpkg.com/three@0.185.1/examples/jsm/loaders/USDLoader.js";
+
+    const { BufferGeometry, FileLoader, Float32BufferAttribute, Group, LineBasicMaterial, LineSegments, Loader, Material, Mesh, MeshPhongMaterial, Points, PointsMaterial, Vector3, Color } = THREE;
+    
+    // o object_name | g group_name
+    const _object_pattern = /^[og]\s*(.+)?/;
+    // mtllib file_reference
+    const _material_library_pattern = /^mtllib /;
+    // usemtl material_name
+    const _material_use_pattern = /^usemtl /;
+    // usemap map_name
+    const _map_use_pattern = /^usemap /;
+    const _face_vertex_data_separator_pattern = /\s+/;
+    
+    const _vA = new Vector3();
+    const _vB = new Vector3();
+    const _vC = new Vector3();
+    
+    const _ab = new Vector3();
+    const _cb = new Vector3();
+    
+    const _color = new Color();
+    
+    function ParserState() {
+    
+    	const state = {
+    		objects: [],
+    		object: {},
+    
+    		vertices: [],
+    		normals: [],
+    		colors: [],
+    		uvs: [],
+    
+    		materials: {},
+    		materialLibraries: [],
+    
+    		startObject: function ( name, fromDeclaration ) {
+    
+    			// If the current object (initial from reset) is not from a g/o declaration in the parsed
+    			// file. We need to use it for the first parsed g/o to keep things in sync.
+    			if ( this.object && this.object.fromDeclaration === false ) {
+    
+    				this.object.name = name;
+    				this.object.fromDeclaration = ( fromDeclaration !== false );
+    				return;
+    
+    			}
+    
+    			const previousMaterial = ( this.object && typeof this.object.currentMaterial === 'function' ? this.object.currentMaterial() : undefined );
+    
+    			if ( this.object && typeof this.object._finalize === 'function' ) {
+    
+    				this.object._finalize( true );
+    
+    			}
+    
+    			this.object = {
+    				name: name || '',
+    				fromDeclaration: ( fromDeclaration !== false ),
+    
+    				geometry: {
+    					vertices: [],
+    					normals: [],
+    					colors: [],
+    					uvs: [],
+    					hasUVIndices: false
+    				},
+    				materials: [],
+    				smooth: true,
+    
+    				startMaterial: function ( name, libraries ) {
+    
+    					const previous = this._finalize( false );
+    
+    					// New usemtl declaration overwrites an inherited material, except if faces were declared
+    					// after the material, then it must be preserved for proper MultiMaterial continuation.
+    					if ( previous && ( previous.inherited || previous.groupCount <= 0 ) ) {
+    
+    						this.materials.splice( previous.index, 1 );
+    
+    					}
+    
+    					const material = {
+    						index: this.materials.length,
+    						name: name || '',
+    						mtllib: ( Array.isArray( libraries ) && libraries.length > 0 ? libraries[ libraries.length - 1 ] : '' ),
+    						smooth: ( previous !== undefined ? previous.smooth : this.smooth ),
+    						groupStart: ( previous !== undefined ? previous.groupEnd : 0 ),
+    						groupEnd: - 1,
+    						groupCount: - 1,
+    						inherited: false,
+    
+    						clone: function ( index ) {
+    
+    							const cloned = {
+    								index: ( typeof index === 'number' ? index : this.index ),
+    								name: this.name,
+    								mtllib: this.mtllib,
+    								smooth: this.smooth,
+    								groupStart: 0,
+    								groupEnd: - 1,
+    								groupCount: - 1,
+    								inherited: false
+    							};
+    							cloned.clone = this.clone.bind( cloned );
+    							return cloned;
+    
+    						}
+    					};
+    
+    					this.materials.push( material );
+    
+    					return material;
+    
+    				},
+    
+    				currentMaterial: function () {
+    
+    					if ( this.materials.length > 0 ) {
+    
+    						return this.materials[ this.materials.length - 1 ];
+    
+    					}
+    
+    					return undefined;
+    
+    				},
+    
+    				_finalize: function ( end ) {
+    
+    					const lastMultiMaterial = this.currentMaterial();
+    					if ( lastMultiMaterial && lastMultiMaterial.groupEnd === - 1 ) {
+    
+    						lastMultiMaterial.groupEnd = this.geometry.vertices.length / 3;
+    						lastMultiMaterial.groupCount = lastMultiMaterial.groupEnd - lastMultiMaterial.groupStart;
+    						lastMultiMaterial.inherited = false;
+    
+    					}
+    
+    					// Ignore objects tail materials if no face declarations followed them before a new o/g started.
+    					if ( end && this.materials.length > 1 ) {
+    
+    						for ( let mi = this.materials.length - 1; mi >= 0; mi -- ) {
+    
+    							if ( this.materials[ mi ].groupCount <= 0 ) {
+    
+    								this.materials.splice( mi, 1 );
+    
+    							}
+    
+    						}
+    
+    					}
+    
+    					// Guarantee at least one empty material, this makes the creation later more straight forward.
+    					if ( end && this.materials.length === 0 ) {
+    
+    						this.materials.push( {
+    							name: '',
+    							smooth: this.smooth
+    						} );
+    
+    					}
+    
+    					return lastMultiMaterial;
+    
+    				}
+    			};
+    
+    			// Inherit previous objects material.
+    			// Spec tells us that a declared material must be set to all objects until a new material is declared.
+    			// If a usemtl declaration is encountered while this new object is being parsed, it will
+    			// overwrite the inherited material. Exception being that there was already face declarations
+    			// to the inherited material, then it will be preserved for proper MultiMaterial continuation.
+    
+    			if ( previousMaterial && previousMaterial.name && typeof previousMaterial.clone === 'function' ) {
+    
+    				const declared = previousMaterial.clone( 0 );
+    				declared.inherited = true;
+    				this.object.materials.push( declared );
+    
+    			}
+    
+    			this.objects.push( this.object );
+    
+    		},
+    
+    		finalize: function () {
+    
+    			if ( this.object && typeof this.object._finalize === 'function' ) {
+    
+    				this.object._finalize( true );
+    
+    			}
+    
+    		},
+    
+    		parseVertexIndex: function ( value, len ) {
+    
+    			const index = parseInt( value, 10 );
+    			return ( index >= 0 ? index - 1 : index + len / 3 ) * 3;
+    
+    		},
+    
+    		parseNormalIndex: function ( value, len ) {
+    
+    			const index = parseInt( value, 10 );
+    			return ( index >= 0 ? index - 1 : index + len / 3 ) * 3;
+    
+    		},
+    
+    		parseUVIndex: function ( value, len ) {
+    
+    			const index = parseInt( value, 10 );
+    			return ( index >= 0 ? index - 1 : index + len / 2 ) * 2;
+    
+    		},
+    
+    		addVertex: function ( a, b, c ) {
+    
+    			const src = this.vertices;
+    			const dst = this.object.geometry.vertices;
+    
+    			dst.push( src[ a + 0 ], src[ a + 1 ], src[ a + 2 ] );
+    			dst.push( src[ b + 0 ], src[ b + 1 ], src[ b + 2 ] );
+    			dst.push( src[ c + 0 ], src[ c + 1 ], src[ c + 2 ] );
+    
+    		},
+    
+    		addVertexPoint: function ( a ) {
+    
+    			const src = this.vertices;
+    			const dst = this.object.geometry.vertices;
+    
+    			dst.push( src[ a + 0 ], src[ a + 1 ], src[ a + 2 ] );
+    
+    		},
+    
+    		addVertexLine: function ( a ) {
+    
+    			const src = this.vertices;
+    			const dst = this.object.geometry.vertices;
+    
+    			dst.push( src[ a + 0 ], src[ a + 1 ], src[ a + 2 ] );
+    
+    		},
+    
+    		addNormal: function ( a, b, c ) {
+    
+    			const src = this.normals;
+    			const dst = this.object.geometry.normals;
+    
+    			dst.push( src[ a + 0 ], src[ a + 1 ], src[ a + 2 ] );
+    			dst.push( src[ b + 0 ], src[ b + 1 ], src[ b + 2 ] );
+    			dst.push( src[ c + 0 ], src[ c + 1 ], src[ c + 2 ] );
+    
+    		},
+    
+    		addFaceNormal: function ( a, b, c ) {
+    
+    			const src = this.vertices;
+    			const dst = this.object.geometry.normals;
+    
+    			_vA.fromArray( src, a );
+    			_vB.fromArray( src, b );
+    			_vC.fromArray( src, c );
+    
+    			_cb.subVectors( _vC, _vB );
+    			_ab.subVectors( _vA, _vB );
+    			_cb.cross( _ab );
+    
+    			_cb.normalize();
+    
+    			dst.push( _cb.x, _cb.y, _cb.z );
+    			dst.push( _cb.x, _cb.y, _cb.z );
+    			dst.push( _cb.x, _cb.y, _cb.z );
+    
+    		},
+    
+    		addColor: function ( a, b, c ) {
+    
+    			const src = this.colors;
+    			const dst = this.object.geometry.colors;
+    
+    			if ( src[ a ] !== undefined ) dst.push( src[ a + 0 ], src[ a + 1 ], src[ a + 2 ] );
+    			if ( src[ b ] !== undefined ) dst.push( src[ b + 0 ], src[ b + 1 ], src[ b + 2 ] );
+    			if ( src[ c ] !== undefined ) dst.push( src[ c + 0 ], src[ c + 1 ], src[ c + 2 ] );
+    
+    		},
+    
+    		addUV: function ( a, b, c ) {
+    
+    			const src = this.uvs;
+    			const dst = this.object.geometry.uvs;
+    
+    			dst.push( src[ a + 0 ], src[ a + 1 ] );
+    			dst.push( src[ b + 0 ], src[ b + 1 ] );
+    			dst.push( src[ c + 0 ], src[ c + 1 ] );
+    
+    		},
+    
+    		addDefaultUV: function () {
+    
+    			const dst = this.object.geometry.uvs;
+    
+    			dst.push( 0, 0 );
+    			dst.push( 0, 0 );
+    			dst.push( 0, 0 );
+    
+    		},
+    
+    		addUVLine: function ( a ) {
+    
+    			const src = this.uvs;
+    			const dst = this.object.geometry.uvs;
+    
+    			dst.push( src[ a + 0 ], src[ a + 1 ] );
+    
+    		},
+    
+    		addFace: function ( a, b, c, ua, ub, uc, na, nb, nc ) {
+    
+    			const vLen = this.vertices.length;
+    
+    			let ia = this.parseVertexIndex( a, vLen );
+    			let ib = this.parseVertexIndex( b, vLen );
+    			let ic = this.parseVertexIndex( c, vLen );
+    
+    			this.addVertex( ia, ib, ic );
+    			this.addColor( ia, ib, ic );
+    
+    			// normals
+    
+    			if ( na !== undefined && na !== '' ) {
+    
+    				const nLen = this.normals.length;
+    
+    				ia = this.parseNormalIndex( na, nLen );
+    				ib = this.parseNormalIndex( nb, nLen );
+    				ic = this.parseNormalIndex( nc, nLen );
+    
+    				this.addNormal( ia, ib, ic );
+    
+    			} else {
+    
+    				this.addFaceNormal( ia, ib, ic );
+    
+    			}
+    
+    			// uvs
+    
+    			if ( ua !== undefined && ua !== '' ) {
+    
+    				const uvLen = this.uvs.length;
+    
+    				ia = this.parseUVIndex( ua, uvLen );
+    				ib = this.parseUVIndex( ub, uvLen );
+    				ic = this.parseUVIndex( uc, uvLen );
+    
+    				this.addUV( ia, ib, ic );
+    
+    				this.object.geometry.hasUVIndices = true;
+    
+    			} else {
+    
+    				// add placeholder values (for inconsistent face definitions)
+    
+    				this.addDefaultUV();
+    
+    			}
+    
+    		},
+    
+    		addPointGeometry: function ( vertices ) {
+    
+    			this.object.geometry.type = 'Points';
+    
+    			const vLen = this.vertices.length;
+    
+    			for ( let vi = 0, l = vertices.length; vi < l; vi ++ ) {
+    
+    				const index = this.parseVertexIndex( vertices[ vi ], vLen );
+    
+    				this.addVertexPoint( index );
+    				this.addColor( index );
+    
+    			}
+    
+    		},
+    
+    		addLineGeometry: function ( vertices, uvs ) {
+    
+    			this.object.geometry.type = 'Line';
+    
+    			const vLen = this.vertices.length;
+    			const uvLen = this.uvs.length;
+    
+    			for ( let vi = 0, l = vertices.length; vi < l; vi ++ ) {
+    
+    				this.addVertexLine( this.parseVertexIndex( vertices[ vi ], vLen ) );
+    
+    			}
+    
+    			for ( let uvi = 0, l = uvs.length; uvi < l; uvi ++ ) {
+    
+    				this.addUVLine( this.parseUVIndex( uvs[ uvi ], uvLen ) );
+    
+    			}
+    
+    		}
+    
+    	};
+    
+    	state.startObject( '', false );
+    
+    	return state;
+    
+    }
+    
+    //
+    
+    class OBJLoader extends Loader {
+    
+    	constructor( manager ) {
+    
+    		super( manager );
+    
+    		this.materials = null;
+    
+    	}
+    
+    	load( url, onLoad, onProgress, onError ) {
+    
+    		const scope = this;
+    
+    		const loader = new FileLoader( this.manager );
+    		loader.setPath( this.path );
+    		loader.setRequestHeader( this.requestHeader );
+    		loader.setWithCredentials( this.withCredentials );
+    		loader.load( url, function ( text ) {
+    
+    			try {
+    
+    				onLoad( scope.parse( text ) );
+    
+    			} catch ( e ) {
+    
+    				if ( onError ) {
+    
+    					onError( e );
+    
+    				} else {
+    
+    					console.error( e );
+    
+    				}
+    
+    				scope.manager.itemError( url );
+    
+    			}
+    
+    		}, onProgress, onError );
+    
+    	}
+    
+    	setMaterials( materials ) {
+    
+    		this.materials = materials;
+    
+    		return this;
+    
+    	}
+    
+    	parse( text ) {
+    
+    		const state = new ParserState();
+    
+    		if ( text.indexOf( '\r\n' ) !== - 1 ) {
+    
+    			// This is faster than String.split with regex that splits on both
+    			text = text.replace( /\r\n/g, '\n' );
+    
+    		}
+    
+    		if ( text.indexOf( '\\\n' ) !== - 1 ) {
+    
+    			// join lines separated by a line continuation character (\)
+    			text = text.replace( /\\\n/g, '' );
+    
+    		}
+    
+    		const lines = text.split( '\n' );
+    		let result = [];
+    
+    		for ( let i = 0, l = lines.length; i < l; i ++ ) {
+    
+    			const line = lines[ i ].trimStart();
+    
+    			if ( line.length === 0 ) continue;
+    
+    			const lineFirstChar = line.charAt( 0 );
+    
+    			// @todo invoke passed in handler if any
+    			if ( lineFirstChar === '#' ) continue; // skip comments
+    
+    			if ( lineFirstChar === 'v' ) {
+    
+    				const data = line.split( _face_vertex_data_separator_pattern );
+    
+    				switch ( data[ 0 ] ) {
+    
+    					case 'v':
+    						state.vertices.push(
+    							parseFloat( data[ 1 ] ),
+    							parseFloat( data[ 2 ] ),
+    							parseFloat( data[ 3 ] )
+    						);
+    						if ( data.length >= 7 ) {
+    
+    							_color.setRGB(
+    								parseFloat( data[ 4 ] ),
+    								parseFloat( data[ 5 ] ),
+    								parseFloat( data[ 6 ] )
+    							).convertSRGBToLinear();
+    
+    							state.colors.push( _color.r, _color.g, _color.b );
+    
+    						} else {
+    
+    							// if no colors are defined, add placeholders so color and vertex indices match
+    
+    							state.colors.push( undefined, undefined, undefined );
+    
+    						}
+    
+    						break;
+    					case 'vn':
+    						state.normals.push(
+    							parseFloat( data[ 1 ] ),
+    							parseFloat( data[ 2 ] ),
+    							parseFloat( data[ 3 ] )
+    						);
+    						break;
+    					case 'vt':
+    						state.uvs.push(
+    							parseFloat( data[ 1 ] ),
+    							parseFloat( data[ 2 ] )
+    						);
+    						break;
+    
+    				}
+    
+    			} else if ( lineFirstChar === 'f' ) {
+    
+    				const lineData = line.slice( 1 ).trim();
+    				const vertexData = lineData.split( _face_vertex_data_separator_pattern );
+    				const faceVertices = [];
+    
+    				// Parse the face vertex data into an easy to work with format
+    
+    				for ( let j = 0, jl = vertexData.length; j < jl; j ++ ) {
+    
+    					const vertex = vertexData[ j ];
+    
+    					if ( vertex.length > 0 ) {
+    
+    						const vertexParts = vertex.split( '/' );
+    						faceVertices.push( vertexParts );
+    
+    					}
+    
+    				}
+    
+    				// Draw an edge between the first vertex and all subsequent vertices to form an n-gon
+    
+    				const v1 = faceVertices[ 0 ];
+    
+    				for ( let j = 1, jl = faceVertices.length - 1; j < jl; j ++ ) {
+    
+    					const v2 = faceVertices[ j ];
+    					const v3 = faceVertices[ j + 1 ];
+    
+    					state.addFace(
+    						v1[ 0 ], v2[ 0 ], v3[ 0 ],
+    						v1[ 1 ], v2[ 1 ], v3[ 1 ],
+    						v1[ 2 ], v2[ 2 ], v3[ 2 ]
+    					);
+    
+    				}
+    
+    			} else if ( lineFirstChar === 'l' ) {
+    
+    				const lineParts = line.substring( 1 ).trim().split( ' ' );
+    				let lineVertices = [];
+    				const lineUVs = [];
+    
+    				if ( line.indexOf( '/' ) === - 1 ) {
+    
+    					lineVertices = lineParts;
+    
+    				} else {
+    
+    					for ( let li = 0, llen = lineParts.length; li < llen; li ++ ) {
+    
+    						const parts = lineParts[ li ].split( '/' );
+    
+    						if ( parts[ 0 ] !== '' ) lineVertices.push( parts[ 0 ] );
+    						if ( parts[ 1 ] !== '' ) lineUVs.push( parts[ 1 ] );
+    
+    					}
+    
+    				}
+    
+    				state.addLineGeometry( lineVertices, lineUVs );
+    
+    			} else if ( lineFirstChar === 'p' ) {
+    
+    				const lineData = line.slice( 1 ).trim();
+    				const pointData = lineData.split( ' ' );
+    
+    				state.addPointGeometry( pointData );
+    
+    			} else if ( ( result = _object_pattern.exec( line ) ) !== null ) {
+    
+    				// o object_name
+    				// or
+    				// g group_name
+    
+    				// WORKAROUND: https://bugs.chromium.org/p/v8/issues/detail?id=2869
+    				// let name = result[ 0 ].slice( 1 ).trim();
+    				const name = ( ' ' + result[ 0 ].slice( 1 ).trim() ).slice( 1 );
+    
+    				state.startObject( name );
+    
+    			} else if ( _material_use_pattern.test( line ) ) {
+    
+    				// material
+    
+    				state.object.startMaterial( line.substring( 7 ).trim(), state.materialLibraries );
+    
+    			} else if ( _material_library_pattern.test( line ) ) {
+    
+    				// mtl file
+    
+    				state.materialLibraries.push( line.substring( 7 ).trim() );
+    
+    			} else if ( _map_use_pattern.test( line ) ) {
+    
+    				// the line is parsed but ignored since the loader assumes textures are defined MTL files
+    				// (according to https://www.okino.com/conv/imp_wave.htm, 'usemap' is the old-style Wavefront texture reference method)
+    
+    				console.warn( 'THREE.OBJLoader: Rendering identifier "usemap" not supported. Textures must be defined in MTL files.' );
+    
+    			} else if ( lineFirstChar === 's' ) {
+    
+    				result = line.split( ' ' );
+    
+    				// smooth shading
+    
+    				// @todo Handle files that have varying smooth values for a set of faces inside one geometry,
+    				// but does not define a usemtl for each face set.
+    				// This should be detected and a dummy material created (later MultiMaterial and geometry groups).
+    				// This requires some care to not create extra material on each smooth value for "normal" obj files.
+    				// where explicit usemtl defines geometry groups.
+    				// Example asset: examples/models/obj/cerberus/Cerberus.obj
+    
+    				/*
+    					 * http://paulbourke.net/dataformats/obj/
+    					 *
+    					 * From chapter "Grouping" Syntax explanation "s group_number":
+    					 * "group_number is the smoothing group number. To turn off smoothing groups, use a value of 0 or off.
+    					 * Polygonal elements use group numbers to put elements in different smoothing groups. For free-form
+    					 * surfaces, smoothing groups are either turned on or off; there is no difference between values greater
+    					 * than 0."
+    					 */
+    				if ( result.length > 1 ) {
+    
+    					const value = result[ 1 ].trim().toLowerCase();
+    					state.object.smooth = ( value !== '0' && value !== 'off' );
+    
+    				} else {
+    
+    					// ZBrush can produce "s" lines #11707
+    					state.object.smooth = true;
+    
+    				}
+    
+    				const material = state.object.currentMaterial();
+    				if ( material ) material.smooth = state.object.smooth;
+    
+    			} else {
+    
+    				// Handle null terminated files without exception
+    				if ( line === '\0' ) continue;
+    
+    				console.warn( 'THREE.OBJLoader: Unexpected line: "' + line + '"' );
+    
+    			}
+    
+    		}
+    
+    		state.finalize();
+    
+    		const container = new Group();
+    		container.materialLibraries = [].concat( state.materialLibraries );
+    
+    		const hasPrimitives = ! ( state.objects.length === 1 && state.objects[ 0 ].geometry.vertices.length === 0 );
+    
+    		if ( hasPrimitives === true ) {
+    
+    			for ( let i = 0, l = state.objects.length; i < l; i ++ ) {
+    
+    				const object = state.objects[ i ];
+    				const geometry = object.geometry;
+    				const materials = object.materials;
+    				const isLine = ( geometry.type === 'Line' );
+    				const isPoints = ( geometry.type === 'Points' );
+    				let hasVertexColors = false;
+    
+    				// Skip o/g line declarations that did not follow with any faces
+    				if ( geometry.vertices.length === 0 ) continue;
+    
+    				const buffergeometry = new BufferGeometry();
+    
+    				buffergeometry.setAttribute( 'position', new Float32BufferAttribute( geometry.vertices, 3 ) );
+    
+    				if ( geometry.normals.length > 0 ) {
+    
+    					buffergeometry.setAttribute( 'normal', new Float32BufferAttribute( geometry.normals, 3 ) );
+    
+    				}
+    
+    				if ( geometry.colors.length > 0 ) {
+    
+    					hasVertexColors = true;
+    					buffergeometry.setAttribute( 'color', new Float32BufferAttribute( geometry.colors, 3 ) );
+    
+    				}
+    
+    				if ( geometry.hasUVIndices === true ) {
+    
+    					buffergeometry.setAttribute( 'uv', new Float32BufferAttribute( geometry.uvs, 2 ) );
+    
+    				}
+    
+    				// Create materials
+    
+    				const createdMaterials = [];
+    
+    				for ( let mi = 0, miLen = materials.length; mi < miLen; mi ++ ) {
+    
+    					const sourceMaterial = materials[ mi ];
+    					const materialHash = sourceMaterial.name + '_' + sourceMaterial.smooth + '_' + hasVertexColors;
+    					let material = state.materials[ materialHash ];
+    
+    					if ( this.materials !== null ) {
+    
+    						material = this.materials.create( sourceMaterial.name );
+    
+    						// mtl etc. loaders probably can't create line materials correctly, copy properties to a line material.
+    						if ( isLine && material && ! ( material instanceof LineBasicMaterial ) ) {
+    
+    							const materialLine = new LineBasicMaterial();
+    							Material.prototype.copy.call( materialLine, material );
+    							materialLine.color.copy( material.color );
+    							material = materialLine;
+    
+    						} else if ( isPoints && material && ! ( material instanceof PointsMaterial ) ) {
+    
+    							const materialPoints = new PointsMaterial( { size: 10, sizeAttenuation: false } );
+    							Material.prototype.copy.call( materialPoints, material );
+    							materialPoints.color.copy( material.color );
+    							materialPoints.map = material.map;
+    							material = materialPoints;
+    
+    						}
+    
+    					}
+    
+    					if ( material === undefined ) {
+    
+    						if ( isLine ) {
+    
+    							material = new LineBasicMaterial();
+    
+    						} else if ( isPoints ) {
+    
+    							material = new PointsMaterial( { size: 1, sizeAttenuation: false } );
+    
+    						} else {
+    
+    							material = new MeshPhongMaterial();
+    
+    						}
+    
+    						material.name = sourceMaterial.name;
+    						material.flatShading = sourceMaterial.smooth ? false : true;
+    						material.vertexColors = hasVertexColors;
+    
+    						state.materials[ materialHash ] = material;
+    
+    					}
+    
+    					createdMaterials.push( material );
+    
+    				}
+    
+    				// Create mesh
+    
+    				let mesh;
+    
+    				if ( createdMaterials.length > 1 ) {
+    
+    					for ( let mi = 0, miLen = materials.length; mi < miLen; mi ++ ) {
+    
+    						const sourceMaterial = materials[ mi ];
+    						buffergeometry.addGroup( sourceMaterial.groupStart, sourceMaterial.groupCount, mi );
+    
+    					}
+    
+    					if ( isLine ) {
+    
+    						mesh = new LineSegments( buffergeometry, createdMaterials );
+    
+    					} else if ( isPoints ) {
+    
+    						mesh = new Points( buffergeometry, createdMaterials );
+    
+    					} else {
+    
+    						mesh = new Mesh( buffergeometry, createdMaterials );
+    
+    					}
+    
+    				} else {
+    
+    					if ( isLine ) {
+    
+    						mesh = new LineSegments( buffergeometry, createdMaterials[ 0 ] );
+    
+    					} else if ( isPoints ) {
+    
+    						mesh = new Points( buffergeometry, createdMaterials[ 0 ] );
+    
+    					} else {
+    
+    						mesh = new Mesh( buffergeometry, createdMaterials[ 0 ] );
+    
+    					}
+    
+    				}
+    
+    				mesh.name = object.name;
+    
+    				container.add( mesh );
+    
+    			}
+    
+    		} else {
+    
+    			// if there is only the default parser state object with no geometry data, interpret data as point cloud
+    
+    			if ( state.vertices.length > 0 ) {
+    
+    				const material = new PointsMaterial( { size: 1, sizeAttenuation: false } );
+    
+    				const buffergeometry = new BufferGeometry();
+    
+    				buffergeometry.setAttribute( 'position', new Float32BufferAttribute( state.vertices, 3 ) );
+    
+    				if ( state.colors.length > 0 && state.colors[ 0 ] !== undefined ) {
+    
+    					buffergeometry.setAttribute( 'color', new Float32BufferAttribute( state.colors, 3 ) );
+    					material.vertexColors = true;
+    
+    				}
+    
+    				const points = new Points( buffergeometry, material );
+    				container.add( points );
+    
+    			}
+    
+    		}
+    
+    		return container;
+    
+    	}
+    
+    }
+    
+
+    const ASSETS = {
+      daggerObj: "data:text/plain;base64,IyAzZHMgTWF4IFdhdmVmcm9udCBPQkogRXhwb3J0ZXIgdjAuOTdiIC0gKGMpMjAwNyBndXJ1d2FyZQ0KIyBGaWxlIENyZWF0ZWQ6IDI1LjA5LjIwMTQgMjI6NDQ6MDQNCg0KbXRsbGliIGRhZ2dlcjRfb2JqLm10bA0KDQojDQojIG9iamVjdCBkYWdnZXI0DQojDQoNCnYgIDMuOTIzMiA0LjUyNjYgLTAuMDA5Mw0KdiAgMy42ODkwIDUuMDcxNiAtMC4wMDkzDQp2ICAzLjg4MjYgNS4yMzkwIC0wLjIyMjINCnYgIDQuMTQyNiA0LjMzNjIgLTAuMTIyMw0KdiAgMS41NjUxIDcuNjExNSAtMC4zMDUxDQp2ICAwLjcxMTEgOC44MDI5IC0wLjAwNDYNCnYgIDEuNjk3OCA3LjkxMDAgLTAuMzYzMw0KdiAgNC4yMjAyIDMuNTY2NSAtMC4wMDkzDQp2ICA0LjM5NzMgNC4yNTkxIC0wLjAwOTMNCnYgIDMuNzI5MCA3LjEzOTMgLTAuMzYzMw0KdiAgMy45OTY3IDcuMDMzOSAtMC4zMDY4DQp2ICA0LjYxNjAgNi4xMTg0IC0wLjAwOTMNCnYgIDQuMDQ4NCA5LjU2NjEgLTAuMDA5Mw0KdiAgMy4wOTM2IDEwLjAxNDIgLTAuMzYzMw0KdiAgMy40MzY4IDEwLjA1NTQgLTAuMjg4NQ0KdiAgNC4xODkwIDkuODI2NSAtMC4wMDkzDQp2ICAyLjkxMzAgMTIuMjE3MCAtMC4wMDkzDQp2ICAyLjE0NTggMTIuNjM5MCAtMC4zNjMzDQp2ICAyLjUxNDYgMTIuNzUwNCAtMC4zMDczDQp2ICAzLjAyNzYgMTIuNDQ2MiAtMC4wMDkzDQp2ICAyLjc3MjQgMTcuMDg2NSAtMC4wMDkzDQp2ICAyLjIyOTggMTguNzgwOCAtMC4zNjMzDQp2ICAyLjU5NTYgMTguNTY2NiAtMC4zMDU3DQp2ICAzLjA3NDQgMTcuMTA3NCAtMC4wMDkzDQp2ICAzLjA5NTMgMjAuNDcxOCAtMC4wMDkzDQp2ICAzLjQ0NDIgMTkuNDkyNiAtMC4wMDkzDQp2ICAyLjQ5MTggMTkuNzM2MSAtMC4zMDYwDQp2ICAyLjUzNTUgMjAuNjQzNiAtMC4yNzg4DQp2ICAwLjI4MTIgMTEuODQ3MyAtMC4zNjMzDQp2ICAtMC4yOTgyIDExLjI3NjcgLTAuMTc0NQ0KdiAgMC4yNzA5IDEyLjkyMDIgLTAuMzYzMw0KdiAgMy4yNDk4IDcuODk5NyAtMC4zNjMzDQp2ICA0LjY5OTMgNy4xMjM2IC0wLjAwOTMNCnYgIDQuNDMyNyA2Ljc4NDMgLTAuMjA3MA0KdiAgMy40Njg2IDcuMzg5MyAtMC4zNjMzDQp2ICA1LjA0OTQgNi4zNjIwIC0wLjA4ODgNCnYgIDUuMDQ4MyA2LjU0NTQgLTAuMDA5Mw0KdiAgNS4zMjQzIDYuMDkyNCAtMC4wMDkzDQp2ICA0Ljc5ODMgNi4yNjQzIC0wLjAwOTMNCnYgIDUuMDA5OSA2LjIzOTAgLTAuMDA5Mw0KdiAgMy40MjY5IDcuMTQ5NyAtMC4zNjMzDQp2ICAzLjI0OTggNy4wMDM5IC0wLjM2MzMNCnYgIDQuNTQ0OCA1LjUzODAgLTAuMDA5Mw0KdiAgMy44OTc3IDYuMDc3OCAtMC4xNzkyDQp2ICAzLjE4NzMgNi42NzA2IC0wLjM2MzMNCnYgIDMuNjAxMiA1Ljc4MDAgLTAuMjc3Ng0KdiAgMy4yMjkwIDYuMzA2MCAtMC4zNjMzDQp2ICA0LjU0MzEgNC44NDc3IC0wLjAwOTMNCnYgIDMuMzQ1MiA1LjM4NDEgLTAuMDA5Mw0KdiAgMy4wNzIwIDUuNDkwNyAtMC4wMDQ2DQp2ICAyLjgyMjggNi41NDU1IC0wLjM2MzMNCnYgIDIuNDAzNCA2LjQzMzYgLTAuMzA1MQ0KdiAgNC4yOTMxIDcuNzI3NyAtMC4wMDkzDQp2ICA0LjA0ODQgOC4zODkxIC0wLjAwOTMNCnYgIDIuOTc5MCA5LjExODMgLTAuMzYzMw0KdiAgNC4wMDE0IDkuMjI3NiAtMC4wMDkzDQp2ICAyLjg4NTMgOS42OTEzIC0wLjM2MzMNCnYgIDIuOTM3MyA5Ljg3ODcgLTAuMzYzMw0KdiAgMy45MTc1IDEwLjAzMjYgLTAuMjM5NA0KdiAgNC4zOTMzIDkuOTIzNiAtMC4xNjA0DQp2ICA0LjQ1MzEgOS44MTExIC0wLjAwOTMNCnYgIDQuNzA0NiA5LjczODAgLTAuMDA5Mw0KdiAgNC4zMDM1IDEwLjEzOTAgLTAuMDA5Mw0KdiAgMy44NjA4IDEwLjM4OTAgLTAuMDA5Mw0KdiAgMy41MjIzIDEwLjY2NTAgLTAuMDA5Mw0KdiAgMi42MjQ5IDEwLjQzMDggLTAuMzYzMw0KdiAgMi44NTQwIDEwLjExODMgLTAuMzYzMw0KdiAgMy4yNDYzIDExLjA1NTYgLTAuMDA5Mw0KdiAgMi4xODc0IDExLjM3ODYgLTAuMzYzMw0KdiAgMy4wMzI3IDExLjM5NDIgLTAuMDA5Mw0KdiAgMi45NDQyIDExLjcyMjMgLTAuMDA5Mw0KdiAgMi45MTMwIDEyLjAxOTEgLTAuMDA5Mw0KdiAgMS44OTU3IDEyLjE5MTEgLTAuMzYzMw0KdiAgMS45Mzc0IDEyLjQ0MTAgLTAuMzYzMw0KdiAgMy4wMjM1IDEyLjczODEgLTAuMTU5Mg0KdiAgMy4yMDk5IDEyLjU4NjggLTAuMDA5Mw0KdiAgMy4zOTIxIDEyLjU5MjAgLTAuMDA5Mw0KdiAgMy4xNjI5IDEyLjg2MjggLTAuMDA5Mw0KdiAgMi43ODgwIDEzLjEyMzIgLTAuMDA5Mw0KdiAgMS45MTY2IDEyLjc0MzIgLTAuMzYzMw0KdiAgMi40OTExIDEzLjM3MzIgLTAuMDA5Mw0KdiAgMS43MjkxIDEzLjA4NjggLTAuMzYzMw0KdiAgMi4zNTU3IDEzLjY1NDUgLTAuMDA5Mw0KdiAgMS40MjcwIDE0LjEyODUgLTAuMzYzMw0KdiAgMi4yNDYzIDE0LjA1NTUgLTAuMDA5Mw0KdiAgMi4yNTY4IDE0LjMwNTUgLTAuMDA5Mw0KdiAgMS40MDYyIDE0LjU4NjggLTAuMzYzMw0KdiAgMi4yNjIwIDE0LjYwMjMgLTAuMDA5Mw0KdiAgMS40MDYyIDE1LjAwMzUgLTAuMzYzMw0KdiAgMi4zNjA5IDE0Ljc3OTQgLTAuMDA5Mw0KdiAgMS42MzUzIDE1LjI3NDMgLTAuMzYzMw0KdiAgMi4xOTAxIDE1LjIyODUgLTAuMjA5Ng0KdiAgMi41MDMwIDE1LjA2NTYgLTAuMTIzMA0KdiAgMi43MDk5IDE1LjExNzkgLTAuMDA5Mw0KdiAgMi44MTkzIDE0Ljg1MjMgLTAuMDA5Mw0KdiAgMi41MjI0IDE0Ljg4MzYgLTAuMDA5Mw0KdiAgMi41MjI0IDE1LjMxNTggLTAuMDA5Mw0KdiAgMi4yODgwIDE1LjYzODcgLTAuMDA5Mw0KdiAgMS41MzEyIDE1LjU0NTEgLTAuMzYzMw0KdiAgMi4yMTUxIDE1Ljg3MzEgLTAuMDA5Mw0KdiAgMS41MDAwIDE2LjIxMTcgLTAuMzYzMw0KdiAgMi4zNDUzIDE2LjQzNTYgLTAuMDA5Mw0KdiAgMS41NjI0IDE3LjIyMjAgLTAuMzYzMw0KdiAgMi41MzgwIDE2Ljc4OTcgLTAuMDA5Mw0KdiAgMS43NjAzIDE3Ljg1NzUgLTAuMzYzMw0KdiAgMi4wMTAzIDE4LjQzMDMgLTAuMzYzMw0KdiAgMy4xMDMzIDE4LjA3OTUgLTAuMjY0Nw0KdiAgMy4zOTczIDE2Ljg3ODIgLTAuMDA5Mw0KdiAgMy42MjcyIDE2LjkwNjYgLTAuMjA5MQ0KdiAgMy44OTIxIDE2LjEyODMgLTAuMDA5Mw0KdiAgMy44ODY5IDE2Ljc4NDUgLTAuMDA5Mw0KdiAgMy44MDM2IDE3LjU1MDEgLTAuMDA5Mw0KdiAgMy43NDYyIDE4LjI3NDAgLTAuMDA5Mw0KdiAgMi44ODcwIDIwLjk2MTMgLTAuMDA5Mw0KdiAgMi4zODYyIDIxLjI4MDcgLTAuMjI4Nw0KdiAgMi4zMjk3IDIxLjcwNjEgLTAuMDA5Mw0KdiAgMS44NDUzIDIyLjM5ODcgLTAuMDA5Mw0KdiAgMS45MDI2IDIyLjAwMjkgLTAuMDA5Mw0KdiAgMS45ODA4IDIxLjI0NzcgLTAuMDA5Mw0KdiAgMS45NDQzIDIwLjYyODAgLTAuMDA5Mw0KdiAgMS43OTg1IDIwLjA3NjAgLTAuMDA5Mw0KdiAgMS4zMTI0IDE3LjgwNTQgLTAuMzYzMw0KdiAgMS4xMzE4IDE5LjEwNzMgLTAuMDA5Mw0KdiAgMS45OTA4IDE4LjYxNDIgLTAuMzYzMw0KdiAgMC44MzMzIDE2LjgyNjIgLTAuMzYzMw0KdiAgMC4yMjA0IDE3LjQxNDcgLTAuMDA5Mw0KdiAgMC40NTgzIDE1LjM4ODggLTAuMzYzMw0KdiAgLTAuMTA3NyAxNi42Njk5IC0wLjAwOTMNCnYgIC0wLjM0NzIgMTUuNTI0MSAtMC4wMDkzDQp2ICAtMC42NzAxIDEzLjg5OTIgLTAuMDA5Mw0KdiAgMC4zMTI1IDE0LjE4MDUgLTAuMzYzMw0KdiAgLTAuNzM3OSAxMC42Mjg1IC0wLjAwOTMNCnYgIC0wLjQ1NDcgMTAuNjM1OSAtMC4wMDkzDQp2ICAtMC4xODU4IDEwLjU2MDggLTAuMDA5Mw0KdiAgMC4xNTgwIDEwLjM2MjkgLTAuMDA5Mw0KdiAgMC41NzI5IDExLjU5NzMgLTAuMzYzMw0KdiAgMS4zODU0IDkuOTgyOCAtMC4zNjMzDQp2ICAwLjQwNzkgOS42NzU1IC0wLjAwOTMNCnYgIDAuOTU4MyAxMS4wOTc0IC0wLjM2MzMNCnYgIDEuNjM1MyA4LjgzNzEgLTAuMzYzMw0KdiAgNC4xNDI2IDQuMzM2MiAwLjEwMzcNCnYgIDMuODgyNiA1LjIzOTAgMC4yMDM2DQp2ICAxLjU2NTEgNy42MTE1IDAuMjk1OA0KdiAgMS42OTc4IDcuOTEwMCAwLjM0NDcNCnYgIDMuNzI5MCA3LjEzOTMgMC4zNDQ3DQp2ICAzLjk5NjcgNy4wMzM5IDAuMjg4Mg0KdiAgMy40MzY4IDEwLjA1NTQgMC4yNjk4DQp2ICAzLjA5MzYgMTAuMDE0MiAwLjM0NDcNCnYgIDIuNTE0NiAxMi43NTA0IDAuMjg4Nw0KdiAgMi4xNDU4IDEyLjYzOTAgMC4zNDQ3DQp2ICAyLjU5NTYgMTguNTY2NiAwLjI4NzENCnYgIDIuMjI5OCAxOC43ODA4IDAuMzQ0Nw0KdiAgMi41MzU1IDIwLjY0MzYgMC4yNjAyDQp2ICAyLjQ5MTggMTkuNzM2MSAwLjI4NzMNCnYgIDAuMjgxMiAxMS44NDczIDAuMzQ0Nw0KdiAgMC4yNzA5IDEyLjkyMDIgMC4zNDQ3DQp2ICAtMC4yOTgyIDExLjI3NjcgMC4xNTU4DQp2ICAzLjI0OTggNy44OTk3IDAuMzQ0Nw0KdiAgNC40MzI3IDYuNzg0MyAwLjE4ODQNCnYgIDMuNDY4NiA3LjM4OTMgMC4zNDQ3DQp2ICA1LjA0OTQgNi4zNjIwIDAuMDcwMg0KdiAgMy40MjY5IDcuMTQ5NyAwLjM0NDcNCnYgIDMuMjQ5OCA3LjAwMzkgMC4zNDQ3DQp2ICAzLjg5NzcgNi4wNzc4IDAuMTYwNg0KdiAgMy4xODczIDYuNjcwNiAwLjM0NDcNCnYgIDMuMjI5MCA2LjMwNjAgMC4zNDQ3DQp2ICAzLjYwMTIgNS43ODAwIDAuMjU5MA0KdiAgMi44MjI4IDYuNTQ1NSAwLjM0NDcNCnYgIDIuNDAzNCA2LjQzMzYgMC4yOTU4DQp2ICAyLjk3OTAgOS4xMTgzIDAuMzQ0Nw0KdiAgMi44ODUzIDkuNjkxMyAwLjM0NDcNCnYgIDIuOTM3MyA5Ljg3ODcgMC4zNDQ3DQp2ICA0LjM5MzMgOS45MjM2IDAuMTQxOA0KdiAgMy45MTc1IDEwLjAzMjYgMC4yMjA4DQp2ICAyLjYyNDkgMTAuNDMwOCAwLjM0NDcNCnYgIDIuODU0MCAxMC4xMTgzIDAuMzQ0Nw0KdiAgMi4xODc0IDExLjM3ODYgMC4zNDQ3DQp2ICAxLjg5NTcgMTIuMTkxMSAwLjM0NDcNCnYgIDEuOTM3NCAxMi40NDEwIDAuMzQ0Nw0KdiAgMy4wMjM1IDEyLjczODEgMC4xNDA1DQp2ICAxLjkxNjYgMTIuNzQzMiAwLjM0NDcNCnYgIDEuNzI5MSAxMy4wODY4IDAuMzQ0Nw0KdiAgMS40MjcwIDE0LjEyODUgMC4zNDQ3DQp2ICAxLjQwNjIgMTQuNTg2OCAwLjM0NDcNCnYgIDEuNDA2MiAxNS4wMDM1IDAuMzQ0Nw0KdiAgMS42MzUzIDE1LjI3NDMgMC4zNDQ3DQp2ICAyLjE5MDEgMTUuMjI4NSAwLjE5MTANCnYgIDIuNTAzMCAxNS4wNjU2IDAuMTA0NA0KdiAgMS41MzEyIDE1LjU0NTEgMC4zNDQ3DQp2ICAxLjUwMDAgMTYuMjExNyAwLjM0NDcNCnYgIDEuNTYyNCAxNy4yMjIwIDAuMzQ0Nw0KdiAgMS43NjAzIDE3Ljg1NzUgMC4zNDQ3DQp2ICAyLjAxMDMgMTguNDMwMyAwLjM0NDcNCnYgIDMuMTAzMyAxOC4wNzk1IDAuMjQ2MA0KdiAgMy42MjcyIDE2LjkwNjYgMC4xOTA0DQp2ICAyLjM4NjIgMjEuMjgwNyAwLjIxMDENCnYgIDEuMzEyNCAxNy44MDU0IDAuMzQ0Nw0KdiAgMS45OTA4IDE4LjYxNDIgMC4zNDQ3DQp2ICAwLjgzMzMgMTYuODI2MiAwLjM0NDcNCnYgIDAuNDU4MyAxNS4zODg4IDAuMzQ0Nw0KdiAgMC4zMTI1IDE0LjE4MDUgMC4zNDQ3DQp2ICAwLjU3MjkgMTEuNTk3MyAwLjM0NDcNCnYgIDEuMzg1NCA5Ljk4MjggMC4zNDQ3DQp2ICAwLjk1ODMgMTEuMDk3NCAwLjM0NDcNCnYgIDEuNjM1MyA4LjgzNzEgMC4zNDQ3DQp2ICAxLjMyODAgNy4zMjc3IC0wLjIwNTINCnYgIDAuODEzNCA3Ljg0ODUgMC4wMDAwDQp2ICAyLjA1MDcgNi4yOTU3IC0wLjIwNTINCnYgIDIuNzA5NCA1LjI1ODYgMC4wMDAwDQp2ICAyLjA1MDcgNi4yOTU3IDAuMjA1Mg0KdiAgMS4zMjgwIDcuMzI3NyAwLjIwNTINCnYgIC0wLjMzMDYgLTUuNDYzMSAwLjAwMDANCnYgIDAuMTYxMSAtNS40NDM2IC0wLjM2MDENCnYgIDAuMTYxMSAtNS4zODQ3IDAuMzYwMQ0KdiAgMS4xNjkzIDYuMTI5NSAtMC4yNzcwDQp2ICAwLjY4NDMgNi42MzEwIDAuMDAwMA0KdiAgMS42NDc1IDUuNDIyNyAtMC4yNzcwDQp2ICAyLjMzOTQgNC4yNDkyIDAuMDAwMA0KdiAgMS42NDc1IDUuNDIyNyAwLjI3NzENCnYgIDEuMTY5MyA2LjEyOTUgMC4yNzcxDQp2ICAwLjU5ODUgNS4xNDMxIC0wLjI3NzANCnYgIDAuMDQwOCA1LjY0NDEgMC4wMDAwDQp2ICAxLjE2OTggNC41MzE1IC0wLjI3NzANCnYgIDEuOTgxNyAzLjg5MzQgMC4wMDAwDQp2ICAxLjE2OTggNC41MzE1IDAuMjc3MQ0KdiAgMC41OTg1IDUuMTQzMSAwLjI3NzENCnYgIC0wLjE2OTAgNC40NzkyIC0wLjM1NzQNCnYgIC0wLjc0NDYgNC42MDEwIDAuMDAwMA0KdiAgMC45ODg0IDQuMDE0NyAtMC4zOTYzDQp2ICAxLjc4NzkgMy43MzM1IDAuMDAwMA0KdiAgMC45ODg0IDQuMDE0NyAwLjM5NjQNCnYgIC0wLjE2OTAgNC40NzkyIDAuMzU3NQ0KdiAgMC4yNDM1IDMuMTgyNCAtMC40NTkzDQp2ICAtMC4zNTQzIDMuMzczNSAwLjAwMDANCnYgIDAuOTI4MSAyLjk2MzQgLTAuNDU5Mw0KdiAgMS41MDc5IDIuNzc4MCAwLjAwMDANCnYgIDAuOTI4MSAyLjk2MzQgMC40NTkzDQp2ICAwLjI0MzUgMy4xODI0IDAuNDU5Mw0KdiAgLTAuMDI1NyAyLjExNTQgLTAuNDE1MQ0KdiAgLTAuNTY2MCAyLjI4ODIgMC4wMDAwDQp2ICAwLjU5MzAgMS45MTc1IC0wLjQxNTENCnYgIDEuMTE3MSAxLjc0OTkgMC4wMDAwDQp2ICAwLjU5MzAgMS45MTc1IDAuNDE1Mg0KdiAgLTAuMDI1NyAyLjExNTQgMC40MTUyDQp2ICAtMC4zMDAxIC0wLjMxMjAgLTAuMzcyMA0KdiAgLTAuODA3OSAtMC4zMzIxIDAuMDAwMA0KdiAgMC4yODE2IC0wLjI4OTEgLTAuMzcyMA0KdiAgMC43NzQxIC0wLjI2OTYgMC4wMDAwDQp2ICAwLjI4MTYgLTAuMjg5MSAwLjM3MjANCnYgIC0wLjMwMDEgLTAuMzEyMCAwLjM3MjANCnYgIC0wLjI3NTAgLTIuMjc2OSAtMC4zMDY3DQp2ICAtMC42OTM4IC0yLjI5MzUgMC4wMDAwDQp2ICAwLjIwNDUgLTIuMjU4MCAtMC4zMDY3DQp2ICAwLjYxMDYgLTIuMjQyMCAwLjAwMDANCnYgIDAuMjA0NSAtMi4yNTgwIDAuMzA2OA0KdiAgLTAuMjc1MCAtMi4yNzY5IDAuMzA2OA0KdiAgMC4wMTM2IC00LjAxNTcgLTAuNDA4NQ0KdiAgLTAuNTQ0MSAtNC4wMzc3IDAuMDAwMA0KdiAgMC42MjIzIC0zLjk5MTcgLTAuNDA4NQ0KdiAgMS4xNjMyIC0zLjk3MDMgMC4wMDAwDQp2ICAwLjYyMjMgLTMuOTkxNyAwLjQwODUNCnYgIDAuMDEzNiAtNC4wMTU3IDAuNDA4NQ0KdiAgLTAuMDU5NSAtNC4zOTE5IC0wLjY3MDINCnYgIC0wLjk3NDYgLTQuNDI4MCAwLjAwMDANCnYgIDAuNzIyMyAtNC4zNjEwIC0wLjY3MDINCnYgIDEuNjA5OSAtNC4zMjU5IDAuMDAwMA0KdiAgMC43MjIzIC00LjMwMjAgMC42NzAyDQp2ICAtMC4wNTk1IC00LjMzMjkgMC42NzAyDQp2ICAwLjU4MTIgLTUuNDI3MCAtMC4zNjAxDQp2ICAxLjA1ODAgLTUuNDA4MiAwLjAwMDANCnYgIDAuNTgxMiAtNS4zNjgxIDAuMzYwMQ0KIyAyNzEgdmVydGljZXMNCg0Kdm4gLTAuOTI3NiAtMC4zNzM1IDAuMDAwMA0Kdm4gLTAuODIwOCAtMC41NzEyIDAuMDAwMA0Kdm4gLTAuNTAxMCAtMC4zNDExIC0wLjc5NTQNCnZuIC0wLjU3NzkgLTAuMTk2MiAtMC43OTIyDQp2biAtMC4zNTkyIC0wLjAyMjIgLTAuOTMzMA0Kdm4gLTAuMzQzMiAtMC4wNzAzIC0wLjkzNjYNCnZuIC0wLjM1OTcgLTAuMDIyOSAtMC45MzI4DQp2biAwLjM3OTAgLTAuMDk2OSAtMC45MjAzDQp2biAwLjM1NTAgLTAuMDczMyAtMC45MzIwDQp2biAwLjM3OTQgLTAuMDk1NSAtMC45MjAzDQp2biAwLjAwNzIgLTAuMjU1NyAtMC45NjY3DQp2biAwLjEwMjggLTAuMjQzOCAtMC45NjQzDQp2biAwLjE5MDQgLTAuMTMzMyAtMC45NzI2DQp2biAwLjI4NjYgLTAuMTE0MSAtMC45NTEyDQp2biAwLjIyNzcgLTAuMjU2OSAtMC45MzkyDQp2biAwLjIyNDEgLTAuMjkyNiAtMC45Mjk2DQp2biAwLjA3MDUgLTAuNjE5OSAtMC43ODE1DQp2biAwLjM0MDcgLTAuMTI2MCAtMC45MzE3DQp2biAwLjI1OTkgLTAuMjk3OSAtMC45MTg1DQp2biAwLjI2MDcgLTAuMzM1OSAtMC45MDUxDQp2biAwLjM0MzAgLTAuMzI5MSAtMC44Nzk4DQp2biAwLjE0NjkgLTAuMTcxNiAtMC45NzQyDQp2biAwLjEzNzEgLTAuMTYwMyAtMC45Nzc1DQp2biAwLjAwNTggLTAuMjAxNyAtMC45Nzk0DQp2biAtMC4xMDc5IC0wLjIyODggLTAuOTY3NQ0Kdm4gMC40MTExIDAuMTAzNCAtMC45MDU3DQp2biAwLjI4NjQgMC4wNjQ1IC0wLjk1NTkNCnZuIDAuMzMyMCAwLjAyNzMgLTAuOTQyOQ0Kdm4gMC40NjU4IDAuMTE2OSAtMC44NzcxDQp2biAtMC4zMDcyIC0wLjAwMzAgLTAuOTUxNg0Kdm4gLTAuMzc2OCAwLjAyNDAgLTAuOTI2MA0Kdm4gLTAuMzQxNCAwLjAwNzcgLTAuOTM5OQ0Kdm4gMC4zMzExIDAuMTMwOCAtMC45MzQ1DQp2biAwLjM2MTUgMC4yMzcyIC0wLjkwMTcNCnZuIDAuMzY1OSAwLjI0OTMgLTAuODk2Ng0Kdm4gMC4zMzI0IDAuMjI3MSAtMC45MTU0DQp2biAwLjI0MzQgMC4xNTM0IC0wLjk1NzcNCnZuIC0wLjAwMDAgLTAuMDAwMCAtMS4wMDAwDQp2biAwLjUwNDAgMC4zNDU5IC0wLjc5MTQNCnZuIDAuNDMzOCAwLjMyODkgLTAuODM4OA0Kdm4gMC41NDk3IDAuMzM0OSAtMC43NjUzDQp2biAwLjAxNjkgLTAuMzY1NSAtMC45MzA3DQp2biAwLjA1NzYgLTAuMjgzNyAtMC45NTcyDQp2biAtMC4xNDA3IC0wLjQ3NDQgLTAuODY5MA0Kdm4gLTAuMTQyMCAtMC41MDQ1IC0wLjg1MTYNCnZuIC0wLjIyMjcgLTAuNDc3NSAtMC44NDk5DQp2biAwLjA2MTcgLTAuMTM5OCAtMC45ODgzDQp2biAwLjE4MTMgLTAuMTA3MyAtMC45Nzc2DQp2biAwLjI3NzMgMC4wMDU2IC0wLjk2MDgNCnZuIDAuMjU2MSAwLjAwNTAgLTAuOTY2Ng0Kdm4gMC4yMzM4IC0wLjAyMDIgLTAuOTcyMQ0Kdm4gMC4yNzYxIDAuMDQxMSAtMC45NjAzDQp2biAwLjI2NDUgMC4wMzAyIC0wLjk2MzkNCnZuIDAuMjkyOCAwLjAxNjkgLTAuOTU2MA0Kdm4gMC4zMTMwIC0wLjAyNDggLTAuOTQ5NA0Kdm4gLTAuOTU1MyAtMC4yOTU2IDAuMDAwMA0Kdm4gLTAuNjUzNCAtMC43NTcwIC0wLjAwMTUNCnZuIC0wLjM2MjUgLTAuMzUwOCAtMC44NjM1DQp2biAtMC4zNTc3IC0wLjkzMzcgMC4wMTMyDQp2biAtMC4yMjk1IC0wLjM2MzkgLTAuOTAyNw0Kdm4gLTAuMTA0MiAtMC4zNDIxIC0wLjkzMzkNCnZuIC0wLjA0MjYgLTAuMzMwNiAtMC45NDI4DQp2biAwLjM0NDEgMC4xOTg1IC0wLjkxNzcNCnZuIDAuMzQyMyAwLjA4MTQgLTAuOTM2MQ0Kdm4gMC4zMzMwIDAuMDUyMyAtMC45NDE1DQp2biAwLjMwOTggMC4wMDAxIC0wLjk1MDgNCnZuIDAuMjk4NSAtMC4wMjQ3IC0wLjk1NDENCnZuIDAuMjYxMyAtMC4xNTA4IC0wLjk1MzQNCnZuIDAuMDEzOCAtMC43MzY3IC0wLjY3NjENCnZuIC0wLjEwMjggLTAuODA3NCAtMC41ODA5DQp2biAtMC4xNjc1IC0wLjgyMTIgLTAuNTQ1NQ0Kdm4gMC44NTk2IC0wLjUwOTcgLTAuMDM1Nw0Kdm4gMC40OTI2IDAuNjI4MSAtMC42MDI0DQp2biAwLjM2MzQgMC42MDgzIC0wLjcwNTYNCnZuIDAuNjA5NyAwLjYwOTcgLTAuNTA2Ng0Kdm4gMC4yMTQxIDAuNTY3MyAtMC43OTUyDQp2biAwLjI1MTYgMC40NzY5IC0wLjg0MjINCnZuIDAuMTYxNSAwLjM4NzMgLTAuOTA3Nw0Kdm4gMC4yNzUxIDAuMzAwOCAtMC45MTMxDQp2biAwLjE3MTggMC40MjYzIC0wLjg4ODENCnZuIDAuMzMwMCAwLjIwNjAgLTAuOTIxMg0Kdm4gMC4yNDgxIDAuMjk0MiAtMC45MjMwDQp2biAwLjMxNjEgMC4yMDk3IC0wLjkyNTINCnZuIDAuMzc0NSAwLjE0NTMgLTAuOTE1OA0Kdm4gMC4zNjM4IDAuMTU1MCAtMC45MTg1DQp2biAwLjM2MzkgMC4wODgzIC0wLjkyNzINCnZuIDAuMzMxNiAwLjAxOTggLTAuOTQzMg0Kdm4gMC4zNDM5IDAuMDE2OCAtMC45Mzg5DQp2biAwLjMwNzEgLTAuMTQ4MCAtMC45NDAxDQp2biAwLjI0MDYgLTAuNDcwOCAtMC44NDg4DQp2biAwLjEzOTcgLTAuNjA0NyAtMC43ODQxDQp2biAwLjAxOTggLTAuNjkxMyAtMC43MjIzDQp2biAwLjMwNzEgMC41NzExIC0wLjc2MTMNCnZuIDAuMzg3MCAwLjQ2MTQgLTAuNzk4Mw0Kdm4gMC40NzcyIDAuNDAzOCAtMC43ODA1DQp2biAwLjMyOTcgMC40MzAxIC0wLjg0MDQNCnZuIDAuMTQ1OCAwLjQ1MTggLTAuODgwMQ0Kdm4gMC4yNjA3IDAuMjgxMiAtMC45MjM2DQp2biAwLjMwMjcgMC4yODkwIC0wLjkwODINCnZuIDAuMTEwNSAwLjM4ODkgLTAuOTE0Ng0Kdm4gMC4zNzQ4IDAuMTYxMSAtMC45MTMwDQp2biAwLjM4NzIgMC4xMzc3IC0wLjkxMTcNCnZuIDAuMzk2OCAwLjA1NTYgLTAuOTE2Mg0Kdm4gMC40MDAwIDAuMDUzNSAtMC45MTQ5DQp2biAwLjM4OTAgLTAuMDA3MSAtMC45MjEyDQp2biAwLjM4NTAgMC4wMDY0IC0wLjkyMjkNCnZuIDAuMzQ5NCAtMC4wODEyIC0wLjkzMzQNCnZuIDAuMzM1NiAtMC4xMjQ2IC0wLjkzMzcNCnZuIDAuMjQxOCAtMC4zMDU5IC0wLjkyMDgNCnZuIDAuMjczMyAtMC4yNjE0IC0wLjkyNTcNCnZuIDAuMTgzNyAtMC4zNDEyIC0wLjkyMTkNCnZuIDAuNDA4OCAwLjI3NDYgLTAuODcwMw0Kdm4gMC40MjQ5IDAuMjQ5NyAtMC44NzAxDQp2biAwLjQzODIgMC4xODA0IC0wLjg4MDYNCnZuIDAuMTM5NiAtMC41MTM3IC0wLjg0NjUNCnZuIDAuMDY5MyAtMC40NTAxIC0wLjg5MDMNCnZuIC0wLjA1NjEgLTAuNTMzMSAtMC44NDQyDQp2biAwLjQxMjcgMC4zNTQzIC0wLjgzOTENCnZuIDAuMzQ0OCAwLjM1MDIgLTAuODcwOQ0Kdm4gMC4zNjg5IDAuMjE3MiAtMC45MDM4DQp2biAwLjM4NzQgMC4yMzM4IC0wLjg5MTgNCnZuIDAuNDI0OSAwLjA5NTUgLTAuOTAwMg0Kdm4gMC40MTg1IDAuMDE5NSAtMC45MDgwDQp2biAwLjQxNzMgLTAuMDIyMiAtMC45MDg1DQp2biAwLjM1MzggLTAuMDk1OCAtMC45MzA0DQp2biAwLjMwNzcgLTAuMDg2MiAtMC45NDc2DQp2biAwLjI2NDggLTAuMTc4MyAtMC45NDc3DQp2biAwLjI2MDAgLTAuMDk5NyAtMC45NjA1DQp2biAwLjIyNTkgLTAuMTI2NCAtMC45NjU5DQp2biAtMC4yMDA1IC0wLjI1MzcgLTAuOTQ2Mw0Kdm4gLTAuNTE0NCAtMC4zMjU4IC0wLjc5MzMNCnZuIC0wLjU5MDYgLTAuMzQ1OSAtMC43MjkwDQp2biAtMC41Nzg4IC0wLjM4MTggLTAuNzIwNQ0Kdm4gMC41ODExIDAuMDczMSAtMC44MTA1DQp2biAwLjYxNzggMC4wMjgzIC0wLjc4NTgNCnZuIDAuNjExMiAwLjAwNDkgLTAuNzkxNQ0Kdm4gMC40NDg2IDAuMTA3NiAtMC44ODcyDQp2biAwLjMzNzggMC4xNjkxIC0wLjkyNTkNCnZuIDAuMzE1OSAwLjA3ODQgLTAuOTQ1NQ0Kdm4gMC4yNDUzIDAuMTE2NiAtMC45NjI0DQp2biAwLjI1MDMgMC4wNTM3IC0wLjk2NjcNCnZuIDAuNTAxNiAwLjIzNDYgLTAuODMyNw0Kdm4gMC41NjQ2IDAuMzY4NiAtMC43Mzg1DQp2biAwLjYwMjggMC40Mjc2IC0wLjY3MzYNCnZuIDAuNjA5MyAwLjQyNjAgLTAuNjY4OA0Kdm4gLTAuNDU4MCAtMC4wMjA0IC0wLjg4ODcNCnZuIC0wLjQ5NTAgLTAuMDY4MyAtMC44NjYyDQp2biAtMC40OTk3IC0wLjA3MjMgLTAuODYzMg0Kdm4gLTAuNDc1MyAtMC4wMDkyIC0wLjg3OTgNCnZuIC0wLjQxNTEgMC4wMTI5IC0wLjkwOTcNCnZuIC0wLjQxMTAgMC4wMzU5IC0wLjkxMDkNCnZuIC0wLjMyMDYgMC4xMzMyIC0wLjkzNzgNCnZuIC0wLjM1MjAgMC4xMTUwIC0wLjkyODkNCnZuIC0wLjE5NDQgMC4xOTc4IC0wLjk2MDgNCnZuIC0wLjMzNzcgMC4xOTc4IC0wLjkyMDINCnZuIC0wLjI5MzAgMC4yMDA3IC0wLjkzNDgNCnZuIC0wLjIyOTYgMC4yMTA3IC0wLjk1MDINCnZuIC0wLjM2NDYgMC4xNDQyIC0wLjkxOTkNCnZuIC0wLjM2NTkgMC4xNzYyIC0wLjkxMzgNCnZuIC0wLjM4NjkgMC4wNjc3IC0wLjkxOTYNCnZuIC0wLjM3MjYgMC4xMTYwIC0wLjkyMDcNCnZuIC0wLjM4MzggMC4wNjkzIC0wLjkyMDgNCnZuIC0wLjM0ODMgMC4wMzI2IC0wLjkzNjgNCnZuIC0wLjM1ODAgMC4wNDI4IC0wLjkzMjcNCnZuIC0wLjM1OTAgMC4wMTM4IC0wLjkzMzMNCnZuIC0wLjA3MDAgLTAuMjM3OSAtMC45Njg4DQp2biAtMC4wMjcxIC0wLjI0MzIgLTAuOTY5Ng0Kdm4gMC4wMDY1IC0wLjI1MTAgLTAuOTY4MA0Kdm4gLTAuMTQ4MiAtMC4yMjA4IC0wLjk2NDANCnZuIC0wLjA5OTUgLTAuMjI3MyAtMC45Njg3DQp2biAtMC4yNDE1IC0wLjE2MjMgLTAuOTU2Nw0Kdm4gLTAuMjA0NyAtMC4yMDU2IC0wLjk1NzANCnZuIC0wLjMxOTUgLTAuMTA1OCAtMC45NDE3DQp2biAtMC4zMDgwIC0wLjExMzcgLTAuOTQ0Ng0Kdm4gLTAuMjcyNyAtMC4xNTg2IC0wLjk0ODkNCnZuIC0wLjM1OTcgLTAuMDQ5NSAtMC45MzE3DQp2biAtMC4xMTc0IC0wLjA5NTAgLTAuOTg4NQ0Kdm4gLTAuMTY1MSAtMC4xMTc1IC0wLjk3OTINCnZuIC0wLjA0NzMgLTAuMDM0NSAtMC45OTgzDQp2biAtMC4wMzI4IC0wLjAyNzEgLTAuOTk5MQ0Kdm4gLTAuNTc3OSAtMC4xOTYyIDAuNzkyMg0Kdm4gLTAuNTAxMCAtMC4zNDExIDAuNzk1NA0Kdm4gLTAuMzM3MSAtMC4wMDQyIDAuOTQxNQ0Kdm4gLTAuMzQxOSAtMC4wMTAyIDAuOTM5Nw0Kdm4gLTAuMzM3NCAtMC4wNjUzIDAuOTM5MQ0Kdm4gMC4zNzkwIC0wLjA5NjkgMC45MjAzDQp2biAwLjM3OTQgLTAuMDk1NSAwLjkyMDMNCnZuIDAuMzU1MCAtMC4wNzMzIDAuOTMyMA0Kdm4gMC4wMDkwIC0wLjMyMDYgMC45NDcyDQp2biAwLjE5MDQgLTAuMTMzMyAwLjk3MjYNCnZuIDAuMTAyOCAtMC4yNDM4IDAuOTY0Mw0Kdm4gMC4yODY2IC0wLjExNDEgMC45NTEyDQp2biAwLjA3MDUgLTAuNjE5OSAwLjc4MTUNCnZuIDAuMjI0MSAtMC4yOTI2IDAuOTI5Ng0Kdm4gMC4yMjc3IC0wLjI1NjkgMC45MzkyDQp2biAwLjM0MDcgLTAuMTI2MCAwLjkzMTcNCnZuIDAuMzQzMCAtMC4zMjkxIDAuODc5OA0Kdm4gMC4yNjA3IC0wLjMzNTkgMC45MDUxDQp2biAwLjI1OTkgLTAuMjk3OSAwLjkxODUNCnZuIDAuMTQ2OSAtMC4xNzE2IDAuOTc0Mg0Kdm4gLTAuMTA3OSAtMC4yMjg4IDAuOTY3NQ0Kdm4gMC4wMDU4IC0wLjIwMTcgMC45Nzk0DQp2biAwLjEzNzEgLTAuMTYwMyAwLjk3NzUNCnZuIDAuNDExMSAwLjEwMzQgMC45MDU3DQp2biAwLjQ2NTggMC4xMTY5IDAuODc3MQ0Kdm4gMC4zMzIwIDAuMDI3MyAwLjk0MjkNCnZuIDAuMjg2NCAwLjA2NDUgMC45NTU5DQp2biAtMC4zMDcyIC0wLjAwMzAgMC45NTE2DQp2biAtMC4zNDE0IDAuMDA3NyAwLjkzOTkNCnZuIC0wLjM3NjggMC4wMjQwIDAuOTI2MA0Kdm4gMC4zMzExIDAuMTMwOCAwLjkzNDUNCnZuIDAuMzY1OSAwLjI0OTMgMC44OTY2DQp2biAwLjM2MTUgMC4yMzcyIDAuOTAxNw0Kdm4gMC4wMDAwIDAuMDAwMCAxLjAwMDANCnZuIDAuMjQzNCAwLjE1MzQgMC45NTc3DQp2biAwLjMzMjQgMC4yMjcxIDAuOTE1NA0Kdm4gMC41MDQwIDAuMzQ1OSAwLjc5MTQNCnZuIDAuNTQ5NyAwLjMzNDkgMC43NjUzDQp2biAwLjQzMzggMC4zMjg5IDAuODM4OA0Kdm4gMC4wMTY5IC0wLjM2NTUgMC45MzA3DQp2biAtMC4xNDIwIC0wLjUwNDUgMC44NTE2DQp2biAtMC4xNDA3IC0wLjQ3NDQgMC44NjkwDQp2biAwLjA1NzYgLTAuMjgzNyAwLjk1NzINCnZuIC0wLjIyMjcgLTAuNDc3NSAwLjg0OTkNCnZuIDAuMDk3NSAtMC4yMjA3IDAuOTcwNQ0Kdm4gMC4xODEzIC0wLjEwNzMgMC45Nzc2DQp2biAwLjI1NjEgMC4wMDUwIDAuOTY2Ng0Kdm4gMC4yNzczIDAuMDA1NiAwLjk2MDgNCnZuIDAuMjMzOCAtMC4wMjAyIDAuOTcyMQ0Kdm4gMC4yNjQ1IDAuMDMwMiAwLjk2MzkNCnZuIDAuMjc2MSAwLjA0MTEgMC45NjAzDQp2biAwLjI5MjggMC4wMTY5IDAuOTU2MA0Kdm4gMC4zMTMwIC0wLjAyNDggMC45NDk0DQp2biAtMC4zNjI1IC0wLjM1MDggMC44NjM1DQp2biAtMC4yMjI5IC0wLjM1ODUgMC45MDY2DQp2biAtMC4wOTExIC0wLjMzMjQgMC45Mzg3DQp2biAtMC4wMjUwIC0wLjMxOTYgMC45NDcyDQp2biAwLjM0NDEgMC4xOTg1IDAuOTE3Nw0Kdm4gMC4zNDIzIDAuMDgxNCAwLjkzNjENCnZuIDAuMzMzMCAwLjA1MjMgMC45NDE1DQp2biAwLjMwOTggMC4wMDAxIDAuOTUwOA0Kdm4gMC4yOTg1IC0wLjAyNDcgMC45NTQxDQp2biAwLjI2MTMgLTAuMTUwOCAwLjk1MzQNCnZuIC0wLjE2NzUgLTAuODIxMiAwLjU0NTUNCnZuIC0wLjEwMjggLTAuODA3NCAwLjU4MDkNCnZuIDAuMDEzOCAtMC43MzY3IDAuNjc2MQ0Kdm4gLTAuMjM4NyAtMC44MjE2IDAuNTE3Ng0Kdm4gMC40OTI2IDAuNjI4MSAwLjYwMjQNCnZuIDAuMzYzNCAwLjYwODMgMC43MDU2DQp2biAwLjIxNDEgMC41NjczIDAuNzk1Mg0Kdm4gMC4yNTE2IDAuNDc2OSAwLjg0MjINCnZuIDAuMTYxNSAwLjM4NzMgMC45MDc3DQp2biAwLjE3MTggMC40MjYzIDAuODg4MQ0Kdm4gMC4yNzUxIDAuMzAwOCAwLjkxMzENCnZuIDAuMzMwMCAwLjIwNjAgMC45MjEyDQp2biAwLjI0ODEgMC4yOTQyIDAuOTIzMA0Kdm4gMC4zMTYxIDAuMjA5NyAwLjkyNTINCnZuIDAuMzYzOCAwLjE1NTAgMC45MTg1DQp2biAwLjM3NDUgMC4xNDUzIDAuOTE1OA0Kdm4gMC4zNjM5IDAuMDg4MyAwLjkyNzINCnZuIDAuMzMxNiAwLjAxOTggMC45NDMyDQp2biAwLjM0MzkgMC4wMTY4IDAuOTM4OQ0Kdm4gMC4zMDcxIC0wLjE0NzkgMC45NDAxDQp2biAwLjEzOTcgLTAuNjA0NyAwLjc4NDENCnZuIDAuMjQwNiAtMC40NzA4IDAuODQ4OA0Kdm4gMC4wMTk4IC0wLjY5MTMgMC43MjIzDQp2biAwLjMwNzEgMC41NzExIDAuNzYxMw0Kdm4gMC40NzcyIDAuNDAzOCAwLjc4MDUNCnZuIDAuMzg3MCAwLjQ2MTQgMC43OTgzDQp2biAwLjMyOTcgMC40MzAxIDAuODQwNA0Kdm4gMC4xNDU4IDAuNDUxOCAwLjg4MDENCnZuIDAuMjYwNyAwLjI4MTIgMC45MjM2DQp2biAwLjExMDUgMC4zODg5IDAuOTE0Ng0Kdm4gMC4zMDI3IDAuMjg5MCAwLjkwODINCnZuIDAuMzc0OCAwLjE2MTEgMC45MTMwDQp2biAwLjM4NzIgMC4xMzc3IDAuOTExNw0Kdm4gMC4zOTY4IDAuMDU1NiAwLjkxNjINCnZuIDAuNDAwMCAwLjA1MzUgMC45MTQ5DQp2biAwLjM4OTAgLTAuMDA3MSAwLjkyMTINCnZuIDAuMzg1MCAwLjAwNjQgMC45MjI5DQp2biAwLjM0OTQgLTAuMDgxMiAwLjkzMzQNCnZuIDAuMzM1NiAtMC4xMjQ2IDAuOTMzNw0Kdm4gMC4yNDE4IC0wLjMwNTkgMC45MjA4DQp2biAwLjI3MzMgLTAuMjYxNCAwLjkyNTcNCnZuIDAuMTgzNyAtMC4zNDEyIDAuOTIxOQ0Kdm4gMC40MDg4IDAuMjc0NiAwLjg3MDMNCnZuIDAuNDM4MiAwLjE4MDQgMC44ODA2DQp2biAwLjQyNDkgMC4yNDk3IDAuODcwMQ0Kdm4gMC4xMzk2IC0wLjUxMzcgMC44NDY1DQp2biAtMC4wNTYxIC0wLjUzMzEgMC44NDQyDQp2biAwLjA2OTMgLTAuNDUwMSAwLjg5MDMNCnZuIDAuNDEyNyAwLjM1NDMgMC44MzkxDQp2biAwLjM0NDggMC4zNTAyIDAuODcwOQ0Kdm4gMC4zODc0IDAuMjMzOCAwLjg5MTgNCnZuIDAuMzY4OSAwLjIxNzIgMC45MDM4DQp2biAwLjQyNDkgMC4wOTU1IDAuOTAwMg0Kdm4gMC40MTg1IDAuMDE5NSAwLjkwODANCnZuIDAuNDE3MyAtMC4wMjIyIDAuOTA4NQ0Kdm4gMC4zNTM4IC0wLjA5NTggMC45MzA0DQp2biAwLjMwNzcgLTAuMDg2MiAwLjk0NzYNCnZuIDAuMjY0OCAtMC4xNzgzIDAuOTQ3Nw0Kdm4gMC4yNjAwIC0wLjA5OTcgMC45NjA1DQp2biAwLjIyNTkgLTAuMTI2NCAwLjk2NTkNCnZuIC0wLjUxNDQgLTAuMzI1OCAwLjc5MzMNCnZuIC0wLjIwMDUgLTAuMjUzNyAwLjk0NjMNCnZuIC0wLjU3ODggLTAuMzgxOCAwLjcyMDUNCnZuIC0wLjU5MDYgLTAuMzQ1OSAwLjcyOTANCnZuIDAuNTgxMSAwLjA3MzEgMC44MTA1DQp2biAwLjYxMTIgMC4wMDQ5IDAuNzkxNQ0Kdm4gMC42MTc4IDAuMDI4MyAwLjc4NTgNCnZuIDAuNDQ4NiAwLjEwNzYgMC44ODcyDQp2biAwLjMzNzggMC4xNjkxIDAuOTI1OQ0Kdm4gMC4zMTU5IDAuMDc4NCAwLjk0NTUNCnZuIDAuMjQ1MyAwLjExNjYgMC45NjI0DQp2biAwLjI1MDMgMC4wNTM3IDAuOTY2Nw0Kdm4gMC41MDE2IDAuMjM0NiAwLjgzMjcNCnZuIDAuNjAyOCAwLjQyNzYgMC42NzM2DQp2biAwLjU2NDYgMC4zNjg2IDAuNzM4NQ0Kdm4gMC42MDkzIDAuNDI2MCAwLjY2ODgNCnZuIC0wLjQ1ODAgLTAuMDIwNCAwLjg4ODcNCnZuIC0wLjQ5OTcgLTAuMDcyMyAwLjg2MzINCnZuIC0wLjQ5NTAgLTAuMDY4MyAwLjg2NjINCnZuIC0wLjQ3NTMgLTAuMDA5MiAwLjg3OTgNCnZuIC0wLjQxMTAgMC4wMzU5IDAuOTEwOQ0Kdm4gLTAuNDE1MSAwLjAxMjkgMC45MDk3DQp2biAtMC4zMjA2IDAuMTMzMiAwLjkzNzgNCnZuIC0wLjM1MjAgMC4xMTUwIDAuOTI4OQ0Kdm4gLTAuMTk0NCAwLjE5NzggMC45NjA4DQp2biAtMC4zMzc3IDAuMTk3OCAwLjkyMDINCnZuIC0wLjIyOTYgMC4yMTA3IDAuOTUwMg0Kdm4gLTAuMjkzMCAwLjIwMDcgMC45MzQ4DQp2biAtMC4zNjU5IDAuMTc2MiAwLjkxMzgNCnZuIC0wLjM2NDYgMC4xNDQyIDAuOTE5OQ0Kdm4gLTAuMzcyNiAwLjExNjAgMC45MjA3DQp2biAtMC4zODY5IDAuMDY3NyAwLjkxOTYNCnZuIC0wLjM4MzggMC4wNjkzIDAuOTIwOA0Kdm4gLTAuMzU4MCAwLjA0MjggMC45MzI3DQp2biAtMC4zNDgzIDAuMDMyNiAwLjkzNjgNCnZuIC0wLjM1OTAgMC4wMTM4IDAuOTMzMw0Kdm4gLTAuMDcwMCAtMC4yMzc5IDAuOTY4OA0Kdm4gMC4wMDY1IC0wLjI1MTAgMC45NjgwDQp2biAtMC4wMjcxIC0wLjI0MzIgMC45Njk2DQp2biAtMC4xNDgyIC0wLjIyMDggMC45NjQwDQp2biAtMC4wOTk1IC0wLjIyNzMgMC45Njg3DQp2biAtMC4yNDE1IC0wLjE2MjMgMC45NTY3DQp2biAtMC4yMDQ3IC0wLjIwNTYgMC45NTcwDQp2biAtMC4zMTgwIC0wLjEwMzIgMC45NDI0DQp2biAtMC4yNzI3IC0wLjE1ODYgMC45NDg5DQp2biAtMC4zMDk0IC0wLjEwOTIgMC45NDQ2DQp2biAtMC4zNTE1IC0wLjA0ODQgMC45MzQ5DQp2biAtMC4wOTg4IC0wLjA4MDEgMC45OTE5DQp2biAtMC4wMjc2IC0wLjAyMjggMC45OTk0DQp2biAtMC4wMzk4IC0wLjAyOTEgMC45OTg4DQp2biAtMC4xMzk1IC0wLjA5OTMgMC45ODUyDQp2biAtMC4zODU2IC0wLjAzNTkgLTAuOTIyMA0Kdm4gLTAuMjE3MCAtMC4xNTMzIC0wLjk2NDENCnZuIC0wLjAxMDEgLTAuMjUzOCAtMC45NjcyDQp2biAwLjAwODcgLTAuMjQyMCAwLjk3MDINCnZuIC0wLjE5ODAgLTAuMTM5OCAwLjk3MDINCnZuIC0wLjM3MjUgLTAuMDIzOCAwLjkyNzcNCnZuIDAuMDk4NyAtMC45OTE4IDAuMDgxMg0Kdm4gLTAuMTk3NCAwLjA4NDYgLTAuOTc2Nw0Kdm4gLTAuMTI5MSAwLjA4NjYgLTAuOTg3OA0Kdm4gLTAuNDA1MiAwLjEwMzUgLTAuOTA4NA0Kdm4gLTAuMzUwOSAwLjA3NzggLTAuOTMzMg0Kdm4gMC4xMzAwIDAuMDEzMCAtMC45OTE0DQp2biAwLjE0NjMgLTAuMDMyNiAtMC45ODg3DQp2biAwLjE5MzMgLTAuMDcwOSAtMC45Nzg2DQp2biAwLjE3NTUgLTAuMTE4NyAtMC45NzczDQp2biAwLjI0MjEgLTAuMDY3NiAwLjk2NzkNCnZuIDAuMTMwMCAwLjAyMjEgMC45OTEzDQp2biAwLjEzMDAgLTAuMDI5NCAwLjk5MTENCnZuIDAuMjA4MiAtMC4xMzExIDAuOTY5Mw0Kdm4gLTAuMjU1OCAwLjA1NjkgMC45NjUxDQp2biAtMC4xMjYyIDAuMDk0MCAwLjk4NzUNCnZuIC0wLjMzODYgMC4wMzU5IDAuOTQwMg0Kdm4gLTAuMzYwMyAwLjEzMjQgMC45MjM0DQp2biAtMC4xMzI1IDAuMDgyNiAtMC45ODc3DQp2biAtMC4yOTM0IDAuMTkxMyAtMC45MzY2DQp2biAwLjEzNjIgLTAuMDczMCAtMC45ODgwDQp2biAwLjE3OTkgLTAuMTM3MiAtMC45NzQxDQp2biAwLjExNzEgLTAuMDc0OSAwLjk5MDMNCnZuIDAuMTg0MCAtMC4xODUwIDAuOTY1NA0Kdm4gLTAuMTMxOSAwLjA3NjMgMC45ODgzDQp2biAtMC4zMDk1IDAuMTg3NSAwLjkzMjINCnZuIC0wLjI3NjkgMC4zMjcxIC0wLjkwMzUNCnZuIC0wLjA1NzUgMC4yMTkxIC0wLjk3NDANCnZuIC0wLjIzNjUgMC4yNjA4IC0wLjkzNjANCnZuIC0wLjQ0NDkgMC4zMzQ5IC0wLjgzMDYNCnZuIDAuMjY5NiAwLjEwMDIgLTAuOTU3Nw0Kdm4gMC4yNzIzIDAuMDkxMyAtMC45NTc5DQp2biAwLjE2ODUgLTAuMjA0MyAtMC45NjQzDQp2biAwLjI0OTIgLTAuMTM5NyAtMC45NTgzDQp2biAwLjE4MzMgMC4xMjA0IDAuOTc1Nw0Kdm4gMC4yMTMzIDAuMTE2MiAwLjk3MDENCnZuIDAuMzA1MCAtMC4zNjk3IDAuODc3Ng0Kdm4gMC4zNDA5IC0wLjIwNTUgMC45MTc0DQp2biAtMC4xMjA3IDAuMTc2OCAwLjk3NjgNCnZuIC0wLjIzMjAgMC4zOTY3IDAuODg4MQ0Kdm4gLTAuMjc3OSAwLjIwOTIgMC45Mzc2DQp2biAtMC4zMzE5IDAuMzgxMSAwLjg2MjkNCnZuIC0wLjM5MTcgLTAuMDU1NCAtMC45MTg0DQp2biAtMC4xODY4IDAuMDA0NSAtMC45ODI0DQp2biAtMC42MzY2IC0wLjIwMjQgLTAuNzQ0Mg0Kdm4gLTAuNTc1NiAtMC4xNDAxIC0wLjgwNTcNCnZuIDAuMjEwNyAwLjAwODUgLTAuOTc3NQ0Kdm4gMC4zNzgwIDAuMDQwMiAtMC45MjQ5DQp2biAwLjQwNzAgLTAuMTE5MyAtMC45MDU2DQp2biAwLjUyNzcgLTAuMDUwMSAtMC44NDgwDQp2biAwLjUwNjcgLTAuMDUyNSAwLjg2MDUNCnZuIDAuMTk1NCAwLjA1NDQgMC45NzkyDQp2biAwLjMxNzIgLTAuMDE5NCAwLjk0ODINCnZuIDAuNTc4MSAtMC4xNjk0IDAuNzk4Mg0Kdm4gLTAuNDE5NCAtMC4wOTU3IDAuOTAyNw0Kdm4gLTAuMjA4OCAwLjAwMDcgMC45NzgwDQp2biAtMC41NDU3IC0wLjE3MzUgMC44MTk4DQp2biAtMC42MDg2IC0wLjE0OTggMC43NzkyDQp2biAtMC4zMjEzIDAuMDQxOSAtMC45NDYxDQp2biAtMC4zMjc5IDAuMDMwMCAtMC45NDQyDQp2biAtMC41ODkxIDAuMDg2MiAtMC44MDM1DQp2biAtMC41ODIyIDAuMTEzNiAtMC44MDUwDQp2biAwLjI4ODQgLTAuMTMyNSAtMC45NDgzDQp2biAwLjI4NzEgLTAuMDk2NSAtMC45NTMwDQp2biAwLjU2MzUgLTAuMjE0MiAtMC43OTc4DQp2biAwLjU4MTkgLTAuMTU2OSAtMC43OTc5DQp2biAwLjI4ODQgLTAuMTMyNSAwLjk0ODMNCnZuIDAuMjg3MyAtMC4wOTU4IDAuOTUzMA0Kdm4gMC41ODI1IC0wLjE1NjQgMC43OTc2DQp2biAwLjU2MzUgLTAuMjE0MiAwLjc5NzgNCnZuIC0wLjMyMTMgMC4wNDE5IDAuOTQ2MQ0Kdm4gLTAuMzI3NiAwLjAzMDggMC45NDQzDQp2biAtMC41ODIyIDAuMTEzNiAwLjgwNTANCnZuIC0wLjU4OTMgMC4wODcwIDAuODAzMg0Kdm4gLTAuMzIxNSAtMC4wMDY0IC0wLjk0NjkNCnZuIC0wLjU5MTEgMC4wMDg4IC0wLjgwNjYNCnZuIDAuMzA4NiAtMC4wNTE0IC0wLjk0OTgNCnZuIDAuNjAyMyAtMC4wNzc0IC0wLjc5NDUNCnZuIDAuMzA4NyAtMC4wNTIxIDAuOTQ5Nw0Kdm4gMC42MDI3IC0wLjA3ODMgMC43OTQxDQp2biAtMC4zMjE1IC0wLjAwNzMgMC45NDY5DQp2biAtMC41OTE2IDAuMDA4MCAwLjgwNjINCnZuIC0wLjMyNjQgLTAuMDE4MiAtMC45NDUwDQp2biAtMC41ODkzIC0wLjA0MjMgLTAuODA2OA0Kdm4gMC4yOTMxIDAuMDQwMyAtMC45NTUyDQp2biAwLjU5OTEgMC4wNzM0IC0wLjc5NzMNCnZuIDAuMjkzMSAwLjA0MDMgMC45NTUyDQp2biAwLjU5OTEgMC4wNzM0IDAuNzk3Mw0Kdm4gLTAuMzI2NCAtMC4wMTgyIDAuOTQ1MA0Kdm4gLTAuNTg5MyAtMC4wNDIzIDAuODA2OA0Kdm4gLTAuMjg1NSAwLjAwODcgLTAuOTU4Mw0Kdm4gLTAuNTg4OCAtMC4wNTA1IC0wLjgwNjcNCnZuIDAuMzQwNyAwLjEzNjcgLTAuOTMwMg0Kdm4gMC41ODcyIDAuMTg3NyAtMC43ODc0DQp2biAwLjM0MDcgMC4xMzY3IDAuOTMwMg0Kdm4gMC41ODcyIDAuMTg3NyAwLjc4NzQNCnZuIC0wLjI4NTUgMC4wMDg3IDAuOTU4Mw0Kdm4gLTAuNTg4OCAtMC4wNTA1IDAuODA2Nw0Kdm4gLTAuNTA1MCAwLjU1NjkgLTAuNjU5NA0Kdm4gLTAuMjcyMSAwLjU4NDcgLTAuNzY0Mw0Kdm4gLTAuMjczNiAwLjU4NDYgLTAuNzYzOA0Kdm4gMC4yMzI4IDAuNjAzNSAtMC43NjI2DQp2biAwLjIzMTMgMC42MDM1IC0wLjc2MzENCnZuIDAuNDcwOSAwLjU5MTQgLTAuNjU0Ng0Kdm4gMC40NzYzIDAuNjIyMiAwLjYyMTMNCnZuIDAuMjEyMyAwLjY2OTEgMC43MTIyDQp2biAwLjIyNjMgMC42NjE3IDAuNzE0OA0Kdm4gMC40ODcxIDAuNjExOCAwLjYyMzMNCnZuIC0wLjI3NDggMC42NDE4IDAuNzE2MA0Kdm4gLTAuMjc4NiAwLjY0ODcgMC43MDgzDQp2biAtMC41MDUwIDAuNTU2OSAwLjY1OTQNCnZuIC0wLjUwNjAgMC41ODIzIDAuNjM2Mw0Kdm4gLTAuMjkzMCAtMC4zMjY0IC0wLjg5ODcNCnZuIC0wLjI2OTUgLTAuMzIzOSAtMC45MDY5DQp2biAtMC41NDY4IC0wLjM0MDIgLTAuNzY1MA0Kdm4gMC4zMjQ3IC0wLjMwMzYgLTAuODk1OA0Kdm4gMC4zMDAyIC0wLjMwMjkgLTAuOTA0NQ0Kdm4gMC41ODI5IC0wLjI5NzEgLTAuNzU2Mw0Kdm4gMC4zMTIxIC0wLjMwMzIgMC45MDA0DQp2biAwLjI5ODkgLTAuMjk5NSAwLjkwNjENCnZuIDAuNTYxOSAtMC4yODY1IDAuNzc2MA0Kdm4gMC41Njc1IC0wLjI5NDQgMC43Njg5DQp2biAtMC4yNzgyIC0wLjMyMjAgMC45MDQ5DQp2biAtMC4yNjIyIC0wLjMyMzEgMC45MDkzDQp2biAtMC41MzQ1IC0wLjMzMjYgMC43NzcwDQp2biAtMC41MjY5IC0wLjMzNjQgMC43ODA1DQp2biAwLjAzOTQgLTAuOTk1OSAwLjA4MTUNCnZuIC0wLjAyMjIgLTAuOTk2NCAwLjA4MTYNCiMgNDg3IHZlcnRleCBub3JtYWxzDQoNCnZ0IDAuOTU0NyAwLjEyNDAgMC4wMDAwDQp2dCAwLjkyNjAgMC4xMzgxIDAuMDAwMA0KdnQgMC45MTY0IDAuMTE5MCAwLjAwMDANCnZ0IDAuOTY0MiAwLjEwNzAgMC4wMDAwDQp2dCAwLjc3NjcgMC4yNTU1IDAuMDAwMA0KdnQgMC43MDkzIDAuMzA3MiAwLjAwMDANCnZ0IDAuNzYyMyAwLjI0MzAgMC4wMDAwDQp2dCAxLjAwNDIgMC4xMDU3IDAuMDAwMA0KdnQgMC45Njk5IDAuMDg4NyAwLjAwMDANCnZ0IDAuODE3MSAwLjExMTcgMC4wMDAwDQp2dCAwLjgyNDEgMC4wOTQ0IDAuMDAwMA0KdnQgMC44NzY2IDAuMDU4NiAwLjAwMDANCnZ0IDAuNjk1MiAwLjA2MDUgMC4wMDAwDQp2dCAwLjY2MzMgMC4xMjU0IDAuMDAwMA0KdnQgMC42NjM3IDAuMTAwNiAwLjAwMDANCnZ0IDAuNjgzMyAwLjA0ODQgMC4wMDAwDQp2dCAwLjU0NjUgMC4xMTQyIDAuMDAwMA0KdnQgMC41MTgzIDAuMTY3OSAwLjAwMDANCnZ0IDAuNTE1MCAwLjE0MTEgMC4wMDAwDQp2dCAwLjUzNTMgMC4xMDQ0IDAuMDAwMA0KdnQgMC4yODQ0IDAuMDkzNiAwLjAwMDANCnZ0IDAuMTkzNCAwLjEyODggMC4wMDAwDQp2dCAwLjIwNTUgMC4xMDM0IDAuMDAwMA0KdnQgMC4yODM4IDAuMDcyNyAwLjAwMDANCnZ0IDAuMTA2NyAwLjA1OTUgMC4wMDAwDQp2dCAwLjE1ODAgMC4wMzkyIDAuMDAwMA0KdnQgMC4xNDM3IDAuMTA3OCAwLjAwMDANCnZ0IDAuMDk3MiAwLjEwMTcgMC4wMDAwDQp2dCAwLjU0NzkgMC4zMDUyIDAuMDAwMA0KdnQgMC41NzM4IDAuMzUyMCAwLjAwMDANCnZ0IDAuNDkyMiAwLjI5NzIgMC4wMDAwDQp2dCAwLjc3NDUgMC4xMzY0IDAuMDAwMA0KdnQgMC44MjM4IDAuMDQxOSAwLjAwMDANCnZ0IDAuODM5OSAwLjA2NjIgMC4wMDAwDQp2dCAwLjgwMjQgMC4xMjY2IDAuMDAwMA0KdnQgMC44NjU0IDAuMDI2OSAwLjAwMDANCnZ0IDAuODU1NSAwLjAyMzUgMC4wMDAwDQp2dCAwLjg4MDMgMC4wMDkyIDAuMDAwMA0KdnQgMC44NzA0IDAuMDQ0OCAwLjAwMDANCnZ0IDAuODcyNiAwLjAzMDUgMC4wMDAwDQp2dCAwLjgxNDYgMC4xMzIxIDAuMDAwMA0KdnQgMC44MjA4IDAuMTQ1NiAwLjAwMDANCnZ0IDAuOTA1NiAwLjA2ODggMC4wMDAwDQp2dCAwLjg3MzIgMC4xMDkzIDAuMDAwMA0KdnQgMC44Mzc0IDAuMTUzMyAwLjAwMDANCnZ0IDAuODg2MyAwLjEzMzcgMC4wMDAwDQp2dCAwLjg1NjMgMC4xNTQzIDAuMDAwMA0KdnQgMC45NDA3IDAuMDc0NiAwLjAwMDANCnZ0IDAuOTA3NiAwLjE1ODUgMC4wMDAwDQp2dCAwLjg5OTkgMC4xNzYwIDAuMDAwMA0KdnQgMC44NDA5IDAuMTc5NyAwLjAwMDANCnZ0IDAuODQzNSAwLjIwOTkgMC4wMDAwDQp2dCAwLjc5MDEgMC4wNjI3IDAuMDAwMA0KdnQgMC43NTUwIDAuMDcyNSAwLjAwMDANCnZ0IDAuNzA5MyAwLjE0MjUgMC4wMDAwDQp2dCAwLjcxMjIgMC4wNjcyIDAuMDAwMA0KdnQgMC42Nzg3IDAuMTQzMSAwLjAwMDANCnZ0IDAuNjY5MyAwLjEzNzYgMC4wMDAwDQp2dCAwLjY2NzIgMC4wNjY3IDAuMDAwMA0KdnQgMC42NzQxIDAuMDM1OSAwLjAwMDANCnZ0IDAuNjgyNiAwLjAzMDMgMC4wMDAwDQp2dCAwLjY4MjEgMC4wMTI0IDAuMDAwMA0KdnQgMC42NjA0IDAuMDM2NyAwLjAwMDANCnZ0IDAuNjQ1NSAwLjA2NTIgMC4wMDAwDQp2dCAwLjYyOTggMC4wODYwIDAuMDAwMA0KdnQgMC42MzgwIDAuMTU0MyAwLjAwMDANCnZ0IDAuNjU2MCAwLjE0MTIgMC4wMDAwDQp2dCAwLjYwODEgMC4xMDE0IDAuMDAwMA0KdnQgMC41ODUzIDAuMTc2NCAwLjAwMDANCnZ0IDAuNTg5NCAwLjExMzAgMC4wMDAwDQp2dCAwLjU3MjEgMC4xMTYyIDAuMDAwMA0KdnQgMC41NTY3IDAuMTE2MCAwLjAwMDANCnZ0IDAuNTQwNCAwLjE4OTEgMC4wMDAwDQp2dCAwLjUyNzUgMC4xODQwIDAuMDAwMA0KdnQgMC41MTgzIDAuMTA1NSAwLjAwMDANCnZ0IDAuNTI4MiAwLjA5MTEgMC4wMDAwDQp2dCAwLjUyNjkgMC4wNzg0IDAuMDAwMA0KdnQgMC41MTEyIDAuMDkxOSAwLjAwMDANCnZ0IDAuNDk0NiAwLjExNDkgMC4wMDAwDQp2dCAwLjUxMTMgMC4xODMxIDAuMDAwMA0KdnQgMC40Nzk5IDAuMTMzNyAwLjAwMDANCnZ0IDAuNDkyMSAwLjE5MzYgMC4wMDAwDQp2dCAwLjQ2NDcgMC4xNDEwIDAuMDAwMA0KdnQgMC40MzU0IDAuMjA3MiAwLjAwMDANCnZ0IDAuNDQzNCAwLjE0NTUgMC4wMDAwDQp2dCAwLjQzMDUgMC4xNDMyIDAuMDAwMA0KdnQgMC40MTEyIDAuMjA1NCAwLjAwMDANCnZ0IDAuNDE1MiAwLjE0MDkgMC4wMDAwDQp2dCAwLjM4OTIgMC4yMDI3IDAuMDAwMA0KdnQgMC40MDY0IDAuMTMzMSAwLjAwMDANCnZ0IDAuMzc1OCAwLjE4NTIgMC4wMDAwDQp2dCAwLjM4MDggMC4xNDUzIDAuMDAwMA0KdnQgMC4zOTAzIDAuMTIzNCAwLjAwMDANCnZ0IDAuMzg4MCAwLjEwNjkgMC4wMDAwDQp2dCAwLjQwMjIgMC4xMDA4IDAuMDAwMA0KdnQgMC40MDE0IDAuMTIxNSAwLjAwMDANCnZ0IDAuMzc2NiAwLjExODIgMC4wMDAwDQp2dCAwLjM1ODYgMC4xMzIxIDAuMDAwMA0KdnQgMC4zNjExIDAuMTkwOSAwLjAwMDANCnZ0IDAuMzQ2MiAwLjEzNTcgMC4wMDAwDQp2dCAwLjMyNjAgMC4xODk3IDAuMDAwMA0KdnQgMC4zMTc0IDAuMTI1MCAwLjAwMDANCnZ0IDAuMjczMiAwLjE4MDggMC4wMDAwDQp2dCAwLjI5OTQgMC4xMTA2IDAuMDAwMA0KdnQgMC4yNDA2IDAuMTY0NiAwLjAwMDANCnZ0IDAuMjExMyAwLjE0NTIgMC4wMDAwDQp2dCAwLjIzMTggMC4wNjg0IDAuMDAwMA0KdnQgMC4yOTU3IDAuMDUwOCAwLjAwMDANCnZ0IDAuMjkxMCAwLjAzMTEgMC4wMDAwDQp2dCAwLjMzMTAgMC4wMTA3IDAuMDAwMA0KdnQgMC4yOTcyIDAuMDA5MiAwLjAwMDANCnZ0IDAuMjU4NCAwLjAxNTQgMC4wMDAwDQp2dCAwLjIyMTEgMC4wMjAzIDAuMDAwMA0KdnQgMC4wODA3IDAuMDcxNiAwLjAwMDANCnZ0IDAuMDY1MCAwLjEwODUgMC4wMDAwDQp2dCAwLjA0MDkgMC4xMDQ5IDAuMDAwMA0KdnQgMC4wMDQ0IDAuMTM1NiAwLjAwMDANCnZ0IDAuMDI0OCAwLjEzNjQgMC4wMDAwDQp2dCAwLjA2MzcgMC4xMzk0IDAuMDAwMA0KdnQgMC4wOTUxIDAuMTQ1OSAwLjAwMDANCnZ0IDAuMTIzMCAwLjE1ODIgMC4wMDAwDQp2dCAwLjI0MjIgMC4xOTU5IDAuMDAwMA0KdnQgMC4xNzE5IDAuMjA3NyAwLjAwMDANCnZ0IDAuMjAxNiAwLjE0NjAgMC4wMDAwDQp2dCAwLjI5MTUgMC4yMzMzIDAuMDAwMA0KdnQgMC4yNTcxIDAuMjc3OSAwLjAwMDANCnZ0IDAuMzY0NyAwLjI2NzAgMC4wMDAwDQp2dCAwLjI5NDcgMC4zMDQwIDAuMDAwMA0KdnQgMC4zNTMxIDAuMzI3MSAwLjAwMDANCnZ0IDAuNDM1NyAwLjM1OTQgMC4wMDAwDQp2dCAwLjQyNjkgMC4yODUwIDAuMDAwMA0KdnQgMC42MDQ2IDAuMzg5OCAwLjAwMDANCnZ0IDAuNjA2NiAwLjM3MDMgMC4wMDAwDQp2dCAwLjYxMjYgMC4zNTI1IDAuMDAwMA0KdnQgMC42MjU1IDAuMzMwOCAwLjAwMDANCnZ0IDAuNTYyOSAwLjI4NzMgMC4wMDAwDQp2dCAwLjY1MjYgMC4yNDUxIDAuMDAwMA0KdnQgMC42NjI0IDAuMzE5NSAwLjAwMDANCnZ0IDAuNTkxNiAwLjI2NDkgMC4wMDAwDQp2dCAwLjcxMzkgMC4yMzg0IDAuMDAwMA0KdnQgMC4zMjU5IDAuMTg5NyAwLjAwMDANCnZ0IDAuNzg5NyAwLjI3NTUgMC4wMDAwDQp2dCAwLjc1OTIgMC4zMDkxIDAuMDAwMA0KdnQgMC44NDgzIDAuMjM2MiAwLjAwMDANCnZ0IDAuOTA4MSAwLjIwMzggMC4wMDAwDQp2dCAwLjE4MTIgMC4yOTIyIDAuMDAwMA0KdnQgMC4xMzQwIDAuMzMxMSAwLjAwMDANCnZ0IDAuMTMzOCAwLjI1MjggMC4wMDAwDQp2dCAwLjcwMTggMC40MTEzIDAuMDAwMA0KdnQgMC43MDE4IDAuNTU4MSAwLjAwMDANCnZ0IDAuNjU1MiAwLjU1ODEgMC4wMDAwDQp2dCAwLjY1NTIgMC40MTEzIDAuMDAwMA0KdnQgMC43NjcyIDAuNDExMyAwLjAwMDANCnZ0IDAuNzY3MiAwLjU1ODEgMC4wMDAwDQp2dCAwLjgzOTMgMC40MTEzIDAuMDAwMA0KdnQgMC44MzkzIDAuNTU4MSAwLjAwMDANCnZ0IDAuNDY5NSAwLjQxMTMgMC4wMDAwDQp2dCAwLjU0MTkgMC40MTEzIDAuMDAwMA0KdnQgMC41NDE5IDAuNTU4MSAwLjAwMDANCnZ0IDAuNDY5NSAwLjU1ODEgMC4wMDAwDQp2dCAwLjYwNzYgMC40MTEzIDAuMDAwMA0KdnQgMC42MDc2IDAuNTU4MSAwLjAwMDANCnZ0IDAuNzAxOCAwLjYyNjkgMC4wMDAwDQp2dCAwLjY1NTIgMC42MjY5IDAuMDAwMA0KdnQgMC43NjcyIDAuNjI2OSAwLjAwMDANCnZ0IDAuODM5MyAwLjYyNjkgMC4wMDAwDQp2dCAwLjU0MTkgMC42MjY5IDAuMDAwMA0KdnQgMC40Njk1IDAuNjI2OSAwLjAwMDANCnZ0IDAuNjA3NiAwLjYyNjkgMC4wMDAwDQp2dCAwLjY1NzQgMC42NDc3IDAuMDAwMA0KdnQgMC43MDU1IDAuNjQ3NyAwLjAwMDANCnZ0IDAuNzA1NSAwLjc5NzQgMC4wMDAwDQp2dCAwLjY1NzQgMC43OTc0IDAuMDAwMA0KdnQgMC43NTQ3IDAuNjQ3NyAwLjAwMDANCnZ0IDAuNzU0NyAwLjc5NzQgMC4wMDAwDQp2dCAwLjgxOTQgMC42NDc3IDAuMDAwMA0KdnQgMC44MTk0IDAuNzk3NCAwLjAwMDANCnZ0IDAuNTQyMSAwLjY0NzcgMC4wMDAwDQp2dCAwLjU0MjEgMC43OTc0IDAuMDAwMA0KdnQgMC40Nzc0IDAuNzk3NCAwLjAwMDANCnZ0IDAuNDc3NCAwLjY0NzcgMC4wMDAwDQp2dCAwLjYwOTQgMC42NDc3IDAuMDAwMA0KdnQgMC42MDk0IDAuNzk3NCAwLjAwMDANCnZ0IDAuNjk1MiAwLjgwNzAgMC4wMDAwDQp2dCAwLjY5NTIgMC45NDc2IDAuMDAwMA0KdnQgMC42NDc5IDAuOTQ3NiAwLjAwMDANCnZ0IDAuNjQ3OSAwLjgwNzAgMC4wMDAwDQp2dCAwLjc2MDYgMC44MDcwIDAuMDAwMA0KdnQgMC43NjA2IDAuOTQ3NiAwLjAwMDANCnZ0IDAuODE1NSAwLjgwNzAgMC4wMDAwDQp2dCAwLjgxNTUgMC45NDc2IDAuMDAwMA0KdnQgMC40ODIyIDAuODA3MCAwLjAwMDANCnZ0IDAuNTM3MCAwLjgwNzAgMC4wMDAwDQp2dCAwLjUzNzAgMC45NDc2IDAuMDAwMA0KdnQgMC40ODIyIDAuOTQ3NiAwLjAwMDANCnZ0IDAuNjAwNSAwLjgwNzAgMC4wMDAwDQp2dCAwLjYwMDUgMC45NDc2IDAuMDAwMA0KdnQgMC40NjQ1IDAuNzg0NCAwLjAwMDANCnZ0IDAuMzkxNyAwLjc4NDQgMC4wMDAwDQp2dCAwLjM5MTcgMC42NzczIDAuMDAwMA0KdnQgMC40NjQ1IDAuNjc3MyAwLjAwMDANCnZ0IDAuNDY0NSAwLjg4MDEgMC4wMDAwDQp2dCAwLjM5MTcgMC44ODAxIDAuMDAwMA0KdnQgMC40NjQ1IDAuOTgzOCAwLjAwMDANCnZ0IDAuMzkxNyAwLjk4MzggMC4wMDAwDQp2dCAwLjQ2NDUgMC40NzU0IDAuMDAwMA0KdnQgMC4zOTE3IDAuNDc1NCAwLjAwMDANCnZ0IDAuMzkxNyAwLjM3MjAgMC4wMDAwDQp2dCAwLjQ2NDUgMC4zNzIwIDAuMDAwMA0KdnQgMC40NjQ1IDAuNTcwOSAwLjAwMDANCnZ0IDAuMzkxNyAwLjU3MDkgMC4wMDAwDQp2dCAwLjI1ODEgMC43ODQ0IDAuMDAwMA0KdnQgMC4yNTgxIDAuNjc3MyAwLjAwMDANCnZ0IDAuMjU4MSAwLjg4MDEgMC4wMDAwDQp2dCAwLjI1ODEgMC45ODM4IDAuMDAwMA0KdnQgMC4yNTgxIDAuNDc1NCAwLjAwMDANCnZ0IDAuMjU4MSAwLjM3MjAgMC4wMDAwDQp2dCAwLjI1ODEgMC41NzA5IDAuMDAwMA0KdnQgMC4xMjg4IDAuNzg0NCAwLjAwMDANCnZ0IDAuMTI4OCAwLjY3NzMgMC4wMDAwDQp2dCAwLjEyODggMC44ODAxIDAuMDAwMA0KdnQgMC4xMjg4IDAuOTgzOCAwLjAwMDANCnZ0IDAuMTI4OCAwLjQ3NTQgMC4wMDAwDQp2dCAwLjEyODggMC4zNzIwIDAuMDAwMA0KdnQgMC4xMjg4IDAuNTcwOSAwLjAwMDANCnZ0IDAuMDEwNSAwLjc4NDQgMC4wMDAwDQp2dCAwLjAxMDUgMC42NzczIDAuMDAwMA0KdnQgMC4wMTA1IDAuODgwMSAwLjAwMDANCnZ0IDAuMDEwNSAwLjk4MzggMC4wMDAwDQp2dCAwLjAxMDUgMC40NzU0IDAuMDAwMA0KdnQgMC4wMTA1IDAuMzcyMCAwLjAwMDANCnZ0IDAuMDEwNSAwLjU3MDkgMC4wMDAwDQp2dCAwLjk4ODYgMC42MTMwIDAuMDAwMA0KdnQgMC45ODg2IDAuNzE4MiAwLjAwMDANCnZ0IDAuOTQ0MSAwLjcxODIgMC4wMDAwDQp2dCAwLjk0NDEgMC42MTMwIDAuMDAwMA0KdnQgMC45ODg2IDAuNzk3MSAwLjAwMDANCnZ0IDAuOTQ0MSAwLjc5NzEgMC4wMDAwDQp2dCAwLjk4ODYgMC44OTcyIDAuMDAwMA0KdnQgMC45NDQxIDAuODk3MiAwLjAwMDANCnZ0IDAuOTg4NiAwLjMxOTQgMC4wMDAwDQp2dCAwLjk4ODYgMC40Mjc5IDAuMDAwMA0KdnQgMC45NDQxIDAuNDI3OSAwLjAwMDANCnZ0IDAuOTQ0MSAwLjMxOTQgMC4wMDAwDQp2dCAwLjk4ODYgMC41MDkxIDAuMDAwMA0KdnQgMC45NDQxIDAuNTA5MSAwLjAwMDANCnZ0IDAuODUwOCAwLjcxODIgMC4wMDAwDQp2dCAwLjg1MDggMC42MTMwIDAuMDAwMA0KdnQgMC44NTA4IDAuNzk3MSAwLjAwMDANCnZ0IDAuODUwOCAwLjg5NzIgMC4wMDAwDQp2dCAwLjg1MDggMC40Mjc5IDAuMDAwMA0KdnQgMC44NTA4IDAuMzE5NCAwLjAwMDANCnZ0IDAuODUwOCAwLjUwOTEgMC4wMDAwDQp2dCAwLjA5MzYgMC4yNTI4IDAuMDAwMA0KdnQgMC4wOTM4IDAuMzMxMSAwLjAwMDANCnZ0IDAuMDQ4MCAwLjI5MjIgMC4wMDAwDQojIDI1NiB0ZXh0dXJlIGNvb3Jkcw0KDQpnIGRhZ2dlcjQNCnVzZW10bCBNYXRlcmlhbF9fMTkzDQpzIG9mZg0KZiAxLzEvMSAyLzIvMiAzLzMvMyA0LzQvNCANCmYgNS81LzUgNi82LzYgNy83LzcgDQpmIDgvOC84IDQvNC85IDkvOS8xMCANCmYgMTAvMTAvMTEgMTEvMTEvMTIgMTIvMTIvMTMgDQpmIDEzLzEzLzE0IDE0LzE0LzE1IDE1LzE1LzE2IDE2LzE2LzE3IA0KZiAxNy8xNy8xOCAxOC8xOC8xOSAxOS8xOS8yMCAyMC8yMC8yMSANCmYgMjEvMjEvMjIgMjIvMjIvMjMgMjMvMjMvMjQgMjQvMjQvMjUgDQpmIDI1LzI1LzI2IDI2LzI2LzI3IDI3LzI3LzI4IDI4LzI4LzI5IA0KZiAyOS8yOS8zMCAzMC8zMC8zMSAzMS8zMS8zMiANCmYgMzIvMzIvMzMgMzMvMzMvMzQgMzQvMzQvMzUgDQpmIDExLzExLzM2IDEwLzEwLzM3IDM1LzM1LzM4IDMyLzMyLzMzIA0KZiAzMi8zMi8zMyAzNC8zNC8zNSAxMS8xMS8zNiANCmYgMzYvMzYvMzkgMzcvMzcvNDAgMzgvMzgvNDEgDQpmIDM0LzM0LzM1IDMzLzMzLzM0IDM3LzM3LzQwIDM2LzM2LzM5IA0KZiAzOS8zOS80MiAzNC8zNC80MyAzNi8zNi80NCA0MC80MC80NSANCmYgMzQvMzQvNDMgMzkvMzkvNDIgMTIvMTIvMTMgDQpmIDQwLzQwLzQ1IDM2LzM2LzQ0IDM4LzM4LzQ2IA0KZiAxMC8xMC8xMSAxMi8xMi8xMyA0MS80MS80NyANCmYgMTIvMTIvMTMgMTEvMTEvMTIgMzQvMzQvNDMgDQpmIDQxLzQxLzQ3IDEyLzEyLzEzIDQyLzQyLzQ4IA0KZiAxMi8xMi8xMyA0My80My80OSA0NC80NC81MCA0Mi80Mi80OCANCmYgNDUvNDUvNTEgNDYvNDYvNTIgNDcvNDcvNTMgDQpmIDQ0LzQ0LzUwIDQ2LzQ2LzUyIDQ1LzQ1LzUxIA0KZiA0Mi80Mi80OCA0NC80NC81MCA0NS80NS81MSANCmYgNDQvNDQvNTAgMy8zLzU0IDQ2LzQ2LzUyIA0KZiA5LzkvMTAgNC80LzkgNDgvNDgvNTUgDQpmIDQ4LzQ4LzU1IDMvMy81NCA0My80My80OSANCmYgNDgvNDgvNTUgNC80LzkgMy8zLzU0IA0KZiA0My80My80OSAzLzMvNTQgNDQvNDQvNTAgDQpmIDEvMS8xIDQvNC80IDgvOC81NiANCmYgMy8zLzMgMi8yLzIgNDkvNDkvNTcgNDYvNDYvNTggDQpmIDQ2LzQ2LzU4IDQ5LzQ5LzU3IDUwLzUwLzU5IDQ3LzQ3LzYwIA0KZiA0Ny80Ny82MCA1MC81MC81OSA1MS81MS82MSANCmYgNTEvNTEvNjEgNTAvNTAvNTkgNTIvNTIvNjIgDQpmIDMyLzMyLzMzIDUzLzUzLzYzIDMzLzMzLzM0IA0KZiAzMi8zMi8zMyA1NC81NC82NCA1My81My82MyANCmYgNTUvNTUvNjUgNTQvNTQvNjQgMzIvMzIvMzMgDQpmIDU1LzU1LzY1IDU2LzU2LzY2IDU0LzU0LzY0IA0KZiA1Ny81Ny82NyA1Ni81Ni82NiA1NS81NS82NSANCmYgNTcvNTcvNjcgNTgvNTgvNjggMTMvMTMvMTQgNTYvNTYvNjYgDQpmIDE0LzE0LzE1IDEzLzEzLzE0IDU4LzU4LzY4IA0KZiAxNi8xNi8xNyA1OS81OS82OSA2MC82MC83MCA2MS82MS83MSANCmYgMTYvMTYvMTcgMTUvMTUvMTYgNTkvNTkvNjkgDQpmIDYxLzYxLzcxIDYwLzYwLzcwIDYyLzYyLzcyIA0KZiA2MC82MC83MyA2My82My83NCA2Mi82Mi83NSANCmYgNTkvNTkvNzYgNjQvNjQvNzcgNjMvNjMvNzQgNjAvNjAvNzMgDQpmIDE0LzE0Lzc4IDY1LzY1Lzc5IDE1LzE1LzgwIA0KZiAxNS8xNS84MCA2NS82NS83OSA2NC82NC83NyA1OS81OS83NiANCmYgNjYvNjYvODEgNjUvNjUvNzkgNjcvNjcvODIgDQpmIDY3LzY3LzgyIDY1LzY1Lzc5IDE0LzE0Lzc4IA0KZiA2Ni82Ni84MSA2OC82OC84MyA2NS82NS83OSANCmYgNjYvNjYvODEgNjkvNjkvODQgNzAvNzAvODUgNjgvNjgvODMgDQpmIDY5LzY5Lzg0IDcxLzcxLzg2IDcwLzcwLzg1IA0KZiA3Mi83Mi84NyA3MS83MS84NiA2OS82OS84NCA3My83My84OCANCmYgNzMvNzMvODggMTcvMTcvMTggNzIvNzIvODcgDQpmIDE4LzE4LzE5IDE3LzE3LzE4IDc0Lzc0Lzg5IA0KZiA3NC83NC84OSAxNy8xNy8xOCA3My83My84OCANCmYgMjAvMjAvMjEgMTkvMTkvMjAgNzUvNzUvOTAgNzYvNzYvOTEgDQpmIDc2Lzc2LzkxIDc1Lzc1LzkwIDc3Lzc3LzkyIA0KZiA3NS83NS85MyA3OC83OC85NCA3Ny83Ny85NSANCmYgNzkvNzkvOTYgNzgvNzgvOTQgNzUvNzUvOTMgMTkvMTkvOTcgDQpmIDgwLzgwLzk4IDgxLzgxLzk5IDE4LzE4LzEwMCANCmYgMTkvMTkvOTcgMTgvMTgvMTAwIDgxLzgxLzk5IDc5Lzc5Lzk2IA0KZiA4Mi84Mi8xMDEgODEvODEvOTkgODAvODAvOTggDQpmIDgyLzgyLzEwMSA4My84My8xMDIgODEvODEvOTkgDQpmIDg0Lzg0LzEwMyA4NS84NS8xMDQgODMvODMvMTAyIDgyLzgyLzEwMSANCmYgODQvODQvMTAzIDg2Lzg2LzEwNSA4NS84NS8xMDQgDQpmIDg3Lzg3LzEwNiA4OC84OC8xMDcgODYvODYvMTA1IDg0Lzg0LzEwMyANCmYgODkvODkvMTA4IDkwLzkwLzEwOSA4OC84OC8xMDcgODcvODcvMTA2IA0KZiA5MS85MS8xMTAgOTIvOTIvMTExIDkwLzkwLzEwOSANCmYgOTMvOTMvMTEyIDk0Lzk0LzExMyA5NS85NS8xMTQgDQpmIDk2Lzk2LzExNSA5My85My8xMTYgOTUvOTUvMTE3IA0KZiA5Ny85Ny8xMTggOTQvOTQvMTEzIDkzLzkzLzExMiA5Mi85Mi8xMTkgDQpmIDkwLzkwLzEwOSA5Mi85Mi8xMTEgOTMvOTMvMTE2IDk2Lzk2LzExNSANCmYgOTIvOTIvMTE5IDkxLzkxLzEyMCA5OC85OC8xMjEgOTcvOTcvMTE4IA0KZiA5MS85MS8xMTAgOTAvOTAvMTA5IDg5Lzg5LzEwOCANCmYgOTkvOTkvMTIyIDEwMC8xMDAvMTIzIDk4Lzk4LzEyMSA5MS85MS8xMjAgDQpmIDEwMS8xMDEvMTI0IDEwMC8xMDAvMTIzIDk5Lzk5LzEyMiANCmYgMTAxLzEwMS8xMjQgMTAyLzEwMi8xMjUgMTAwLzEwMC8xMjMgDQpmIDEwMy8xMDMvMTI2IDEwNC8xMDQvMTI3IDEwMi8xMDIvMTI1IDEwMS8xMDEvMTI0IA0KZiAxMDMvMTAzLzEyNiAxMDUvMTA1LzEyOCAyMS8yMS8yMiAxMDQvMTA0LzEyNyANCmYgMjIvMjIvMjMgMjEvMjEvMjIgMTA2LzEwNi8xMjkgDQpmIDEwNi8xMDYvMTI5IDIxLzIxLzIyIDEwNS8xMDUvMTI4IA0KZiAyNC8yNC8yNSAxMDcvMTA3LzEzMCAxMDgvMTA4LzEzMSANCmYgMjQvMjQvMjUgMjMvMjMvMjQgMTA3LzEwNy8xMzAgDQpmIDEwOC8xMDgvMTMxIDEwOS8xMDkvMTMyIDExMC8xMTAvMTMzIA0KZiAxMDgvMTA4LzEzMSAxMDcvMTA3LzEzMCAxMDkvMTA5LzEzMiANCmYgMTA5LzEwOS8xMzQgMTExLzExMS8xMzUgMTEwLzExMC8xMzYgDQpmIDEwOS8xMDkvMTM0IDExMi8xMTIvMTM3IDExMS8xMTEvMTM1IA0KZiAxMDcvMTA3LzEzOCAxMTMvMTEzLzEzOSAxMTIvMTEyLzEzNyAxMDkvMTA5LzEzNCANCmYgMjMvMjMvMTQwIDExMy8xMTMvMTM5IDEwNy8xMDcvMTM4IA0KZiAyNy8yNy8yOCAyNi8yNi8yNyAyMy8yMy8xNDAgMjIvMjIvMTQxIA0KZiAyMy8yMy8xNDAgMjYvMjYvMjcgMTEzLzExMy8xMzkgDQpmIDI1LzI1LzI2IDI4LzI4LzI5IDExNC8xMTQvMTQyIA0KZiAxMTQvMTE0LzE0MiAyOC8yOC8yOSAxMTUvMTE1LzE0MyAxMTYvMTE2LzE0NCANCmYgMTE2LzExNi8xNDQgMTE1LzExNS8xNDMgMTE3LzExNy8xNDUgDQpmIDExNS8xMTUvMTQ2IDExOC8xMTgvMTQ3IDExNy8xMTcvMTQ4IA0KZiAxMTUvMTE1LzE0NiAxMTkvMTE5LzE0OSAxMTgvMTE4LzE0NyANCmYgMTE1LzExNS8xNDYgMjgvMjgvMTUwIDEyMC8xMjAvMTUxIDExOS8xMTkvMTQ5IA0KZiAxMjEvMTIxLzE1MiAxMjAvMTIwLzE1MSAyOC8yOC8xNTAgMjcvMjcvMTUzIA0KZiAyMi8yMi8xNTQgMTIxLzEyMS8xNTIgMjcvMjcvMTUzIA0KZiAxMjIvMTIyLzE1NSAxMjMvMTIzLzE1NiAxMjQvMTI0LzE1NyANCmYgMTI0LzEyNC8xNTcgMTIzLzEyMy8xNTYgMTIxLzEyMS8xNTIgDQpmIDEyMi8xMjIvMTU1IDEyNS8xMjUvMTU4IDEyNi8xMjYvMTU5IDEyMy8xMjMvMTU2IA0KZiAxMjUvMTI1LzE1OCAxMjcvMTI3LzE2MCAxMjgvMTI4LzE2MSAxMjYvMTI2LzE1OSANCmYgMTI3LzEyNy8xNjAgMTI5LzEyOS8xNjIgMTI4LzEyOC8xNjEgDQpmIDMxLzMxLzMyIDEzMC8xMzAvMTYzIDEzMS8xMzEvMTY0IA0KZiAxMzEvMTMxLzE2NCAxMzAvMTMwLzE2MyAxMjkvMTI5LzE2MiANCmYgMTMxLzEzMS8xNjQgMTI5LzEyOS8xNjIgMTI3LzEyNy8xNjAgDQpmIDMxLzMxLzMyIDEzMi8xMzIvMTY1IDEzMC8xMzAvMTYzIA0KZiAzMS8zMS8zMiAzMC8zMC8zMSAxMzIvMTMyLzE2NSANCmYgMzAvMzAvMTY2IDEzMy8xMzMvMTY3IDEzMi8xMzIvMTY4IA0KZiAyOS8yOS8xNjkgMTM0LzEzNC8xNzAgMzAvMzAvMTY2IA0KZiAzMC8zMC8xNjYgMTM0LzEzNC8xNzAgMTMzLzEzMy8xNjcgDQpmIDI5LzI5LzE2OSAxMzUvMTM1LzE3MSAxMzQvMTM0LzE3MCANCmYgMTM2LzEzNi8xNzIgMTM1LzEzNS8xNzEgMjkvMjkvMTY5IA0KZiAxMzcvMTM3LzE3MyAxMzgvMTM4LzE3NCAxMzkvMTM5LzE3NSANCmYgMTM5LzEzOS8xNzUgMTM4LzEzOC8xNzQgMTM1LzEzNS8xNzEgMTM2LzEzNi8xNzIgDQpmIDEzNy8xMzcvMTczIDYvNi82IDEzOC8xMzgvMTc0IA0KZiAxNDAvMTQwLzE3NiA2LzYvNiAxMzcvMTM3LzE3MyANCmYgNy83LzcgNi82LzYgMTQwLzE0MC8xNzYgDQpmIDEyNC8xMjQvMTU3IDEyMS8xMjEvMTUyIDIyLzIyLzE1NCANCmYgNTIvNTIvMTc3IDUvNS8xNzggNy83LzE3OSA1MS81MS8xODAgDQpmIDQyLzQyLzM4IDQ1LzQ1LzM4IDcvNy8xNzkgMTQwLzE0MC8zOCANCmYgNDcvNDcvMzggNy83LzE3OSA0NS80NS8zOCANCmYgNTEvNTEvMTgwIDcvNy8xNzkgNDcvNDcvMzggDQpmIDEwLzEwLzExIDQxLzQxLzQ3IDM1LzM1LzM4IA0KZiA1NS81NS8zOCAzMi8zMi8zOCAxNDAvMTQwLzM4IDEzNy8xMzcvMzggDQpmIDM1LzM1LzM4IDE0MC8xNDAvMzggMzIvMzIvMzggDQpmIDQxLzQxLzM4IDE0MC8xNDAvMzggMzUvMzUvMzggDQpmIDQyLzQyLzM4IDE0MC8xNDAvMzggNDEvNDEvMzggDQpmIDU3LzU3LzM4IDY2LzY2LzM4IDY3LzY3LzM4IDU4LzU4LzM4IA0KZiA2Ny82Ny8zOCAxNC8xNC8zOCA1OC81OC8zOCANCmYgNjkvNjkvMzggNjYvNjYvMzggMTM3LzEzNy8zOCAxMzkvMTM5LzM4IA0KZiA1Ny81Ny8zOCAxMzcvMTM3LzM4IDY2LzY2LzM4IA0KZiA1NS81NS8zOCAxMzcvMTM3LzM4IDU3LzU3LzM4IA0KZiA3My83My8zOCA2OS82OS8zOCAxMzkvMTM5LzM4IDEzNi8xMzYvMzggDQpmIDc0Lzc0LzM4IDczLzczLzM4IDEzNi8xMzYvMzggMjkvMjkvMzggDQpmIDc0Lzc0LzM4IDI5LzI5LzM4IDgyLzgyLzM4IDgwLzgwLzM4IA0KZiAzMS8zMS8zOCA4Mi84Mi8zOCAyOS8yOS8zOCANCmYgODAvODAvMzggMTgvMTgvMzggNzQvNzQvMzggDQpmIDg3Lzg3LzM4IDEzMS8xMzEvMzggMTI3LzEyNy8zOCA4OS84OS8zOCANCmYgODQvODQvMzggMzEvMzEvMzggMTMxLzEzMS8zOCA4Ny84Ny8zOCANCmYgODIvODIvMzggMzEvMzEvMzggODQvODQvMzggDQpmIDEwMS8xMDEvMzggOTkvOTkvMzggMTI3LzEyNy8zOCAxMjUvMTI1LzM4IA0KZiAxMDMvMTAzLzM4IDEyNS8xMjUvMzggMTIyLzEyMi8zOCAxMDUvMTA1LzM4IA0KZiAxMDEvMTAxLzM4IDEyNS8xMjUvMzggMTAzLzEwMy8zOCANCmYgMTA1LzEwNS8zOCAxMjIvMTIyLzM4IDEyNC8xMjQvMzggMTA2LzEwNi8zOCANCmYgMjIvMjIvMzggMTA2LzEwNi8zOCAxMjQvMTI0LzM4IA0KZiA5OS85OS8zOCA5MS85MS8zOCAxMjcvMTI3LzM4IA0KZiA4OS84OS8zOCAxMjcvMTI3LzM4IDkxLzkxLzM4IA0KZiAxLzEvMSAxNDEvNC8xODEgMTQyLzMvMTgyIDIvMi8yIA0KZiAxNDMvNS8xODMgMTQ0LzcvMTg0IDYvNi8xODUgDQpmIDgvOC8xODYgOS85LzE4NyAxNDEvNC8xODggDQpmIDE0NS8xMC8xODkgMTIvMTIvMTkwIDE0Ni8xMS8xOTEgDQpmIDEzLzEzLzE5MiAxNi8xNi8xOTMgMTQ3LzE1LzE5NCAxNDgvMTQvMTk1IA0KZiAxNy8xNy8xOTYgMjAvMjAvMTk3IDE0OS8xOS8xOTggMTUwLzE4LzE5OSANCmYgMjEvMjEvMjAwIDI0LzI0LzIwMSAxNTEvMjMvMjAyIDE1Mi8yMi8yMDMgDQpmIDI1LzI1LzIwNCAxNTMvMjgvMjA1IDE1NC8yNy8yMDYgMjYvMjYvMjA3IA0KZiAxNTUvMjkvMjA4IDE1Ni8zMS8yMDkgMTU3LzMwLzIxMCANCmYgMTU4LzMyLzIxMSAxNTkvMzQvMjEyIDMzLzMzLzIxMyANCmYgMTYwLzM1LzIxNCAxNDUvMTAvMjE1IDE0Ni8xMS8yMTYgMTU4LzMyLzIxMSANCmYgMTU4LzMyLzIxMSAxNDYvMTEvMjE2IDE1OS8zNC8yMTIgDQpmIDE2MS8zNi8yMTcgMzgvMzgvMjE4IDM3LzM3LzIxOSANCmYgMTU5LzM0LzIxMiAxNjEvMzYvMjE3IDM3LzM3LzIxOSAzMy8zMy8yMTMgDQpmIDM5LzM5LzIyMCA0MC80MC8yMjEgMTYxLzM2LzIyMiAxNTkvMzQvMjIzIA0KZiAxNTkvMzQvMjIzIDEyLzEyLzE5MCAzOS8zOS8yMjAgDQpmIDQwLzQwLzIyMSAzOC8zOC8yMjQgMTYxLzM2LzIyMiANCmYgMTQ1LzEwLzE4OSAxNjIvNDEvMjI1IDEyLzEyLzE5MCANCmYgMTIvMTIvMTkwIDE1OS8zNC8yMjMgMTQ2LzExLzE5MSANCmYgMTYyLzQxLzIyNSAxNjMvNDIvMjI2IDEyLzEyLzE5MCANCmYgMTIvMTIvMTkwIDE2My80Mi8yMjYgMTY0LzQ0LzIyNyA0My80My8yMjggDQpmIDE2NS80NS8yMjkgMTY2LzQ3LzIzMCAxNjcvNDYvMjMxIA0KZiAxNjQvNDQvMjI3IDE2NS80NS8yMjkgMTY3LzQ2LzIzMSANCmYgMTYzLzQyLzIyNiAxNjUvNDUvMjI5IDE2NC80NC8yMjcgDQpmIDE2NC80NC8yMjcgMTY3LzQ2LzIzMSAxNDIvMy8yMzIgDQpmIDkvOS8xODcgNDgvNDgvMjMzIDE0MS80LzE4OCANCmYgNDgvNDgvMjMzIDQzLzQzLzIyOCAxNDIvMy8yMzIgDQpmIDQ4LzQ4LzIzMyAxNDIvMy8yMzIgMTQxLzQvMTg4IA0KZiA0My80My8yMjggMTY0LzQ0LzIyNyAxNDIvMy8yMzIgDQpmIDEvMS8xIDgvOC81NiAxNDEvNC8xODEgDQpmIDE0Mi8zLzE4MiAxNjcvNDYvMjM0IDQ5LzQ5LzU3IDIvMi8yIA0KZiA1MC81MC81OSA0OS80OS81NyAxNjcvNDYvMjM0IDE2Ni80Ny8yMzUgDQpmIDE2Ni80Ny8yMzUgMTY4LzUxLzIzNiA1MC81MC81OSANCmYgMTY4LzUxLzIzNiAxNjkvNTIvMjM3IDUwLzUwLzU5IA0KZiAxNTgvMzIvMjExIDMzLzMzLzIxMyA1My81My8yMzggDQpmIDE1OC8zMi8yMTEgNTMvNTMvMjM4IDU0LzU0LzIzOSANCmYgMTcwLzU1LzI0MCAxNTgvMzIvMjExIDU0LzU0LzIzOSANCmYgMTcwLzU1LzI0MCA1NC81NC8yMzkgNTYvNTYvMjQxIA0KZiAxNzEvNTcvMjQyIDE3MC81NS8yNDAgNTYvNTYvMjQxIA0KZiAxNzEvNTcvMjQyIDU2LzU2LzI0MSAxMy8xMy8xOTIgMTcyLzU4LzI0MyANCmYgMTQ4LzE0LzE5NSAxNzIvNTgvMjQzIDEzLzEzLzE5MiANCmYgMTYvMTYvMTkzIDYxLzYxLzI0NCAxNzMvNjAvMjQ1IDE3NC81OS8yNDYgDQpmIDE2LzE2LzE5MyAxNzQvNTkvMjQ2IDE0Ny8xNS8xOTQgDQpmIDYxLzYxLzI0NCA2Mi82Mi8yNDcgMTczLzYwLzI0NSANCmYgMTczLzYwLzI0OCA2Mi82Mi83MiA2My82My8yNDkgDQpmIDE3NC81OS8yNTAgMTczLzYwLzI0OCA2My82My8yNDkgNjQvNjQvMjUxIA0KZiAxNDgvMTQvMjUyIDE0Ny8xNS8yNTMgNjUvNjUvMjU0IA0KZiAxNDcvMTUvMjUzIDE3NC81OS8yNTAgNjQvNjQvMjUxIDY1LzY1LzI1NCANCmYgMTc1LzY2LzI1NSAxNzYvNjcvMjU2IDY1LzY1LzI1NCANCmYgMTc2LzY3LzI1NiAxNDgvMTQvMjUyIDY1LzY1LzI1NCANCmYgMTc1LzY2LzI1NSA2NS82NS8yNTQgNjgvNjgvMjU3IA0KZiAxNzUvNjYvMjU1IDY4LzY4LzI1NyA3MC83MC8yNTggMTc3LzY5LzI1OSANCmYgMTc3LzY5LzI1OSA3MC83MC8yNTggNzEvNzEvMjYwIA0KZiAxNzcvNjkvMjU5IDcxLzcxLzI2MCA3Mi83Mi8yNjEgMTc4LzczLzI2MiANCmYgMTc4LzczLzI2MiA3Mi83Mi8yNjEgMTcvMTcvMTk2IA0KZiAxNTAvMTgvMTk5IDE3OS83NC8yNjMgMTcvMTcvMTk2IA0KZiAxNzkvNzQvMjYzIDE3OC83My8yNjIgMTcvMTcvMTk2IA0KZiAyMC8yMC8xOTcgNzYvNzYvMjY0IDE4MC83NS8yNjUgMTQ5LzE5LzE5OCANCmYgNzYvNzYvMjY0IDc3Lzc3LzI2NiAxODAvNzUvMjY1IA0KZiAxODAvNzUvMjY3IDc3Lzc3LzI2OCA3OC83OC8yNjkgDQpmIDE4MC83NS8yNjcgNzgvNzgvMjY5IDc5Lzc5LzI3MCAxNDkvMTkvMjcxIA0KZiAxODEvODAvMjcyIDE1MC8xOC8yNzMgODEvODEvMjc0IA0KZiAxNDkvMTkvMjcxIDc5Lzc5LzI3MCA4MS84MS8yNzQgMTUwLzE4LzI3MyANCmYgMTgyLzgyLzI3NSAxODEvODAvMjcyIDgxLzgxLzI3NCANCmYgMTgyLzgyLzI3NSA4MS84MS8yNzQgODMvODMvMjc2IA0KZiAxODMvODQvMjc3IDE4Mi84Mi8yNzUgODMvODMvMjc2IDg1Lzg1LzI3OCANCmYgMTgzLzg0LzI3NyA4NS84NS8yNzggODYvODYvMjc5IA0KZiAxODQvODcvMjgwIDE4My84NC8yNzcgODYvODYvMjc5IDg4Lzg4LzI4MSANCmYgMTg1Lzg5LzI4MiAxODQvODcvMjgwIDg4Lzg4LzI4MSA5MC85MC8yODMgDQpmIDE4Ni85MS8yODQgOTAvOTAvMjgzIDE4Ny85Mi8yODUgDQpmIDE4OC85My8yODYgOTUvOTUvMjg3IDk0Lzk0LzI4OCANCmYgOTYvOTYvMjg5IDk1Lzk1LzI5MCAxODgvOTMvMjkxIA0KZiAxODgvOTMvMjg2IDk0Lzk0LzI4OCA5Ny85Ny8yOTIgMTg3LzkyLzI5MyANCmYgOTAvOTAvMjgzIDk2Lzk2LzI4OSAxODgvOTMvMjkxIDE4Ny85Mi8yODUgDQpmIDE4Ny85Mi8yOTMgOTcvOTcvMjkyIDk4Lzk4LzI5NCAxODYvOTEvMjk1IA0KZiAxODYvOTEvMjg0IDE4NS84OS8yODIgOTAvOTAvMjgzIA0KZiAxODkvOTkvMjk2IDE4Ni85MS8yOTUgOTgvOTgvMjk0IDEwMC8xMDAvMjk3IA0KZiAxOTAvMTQxLzI5OCAxODkvOTkvMjk2IDEwMC8xMDAvMjk3IA0KZiAxOTAvMTQxLzI5OCAxMDAvMTAwLzI5NyAxMDIvMTAyLzI5OSANCmYgMTkxLzEwMy8zMDAgMTkwLzE0MS8yOTggMTAyLzEwMi8yOTkgMTA0LzEwNC8zMDEgDQpmIDE5MS8xMDMvMzAwIDEwNC8xMDQvMzAxIDIxLzIxLzIwMCAxOTIvMTA1LzMwMiANCmYgMTUyLzIyLzIwMyAxOTMvMTA2LzMwMyAyMS8yMS8yMDAgDQpmIDE5My8xMDYvMzAzIDE5Mi8xMDUvMzAyIDIxLzIxLzIwMCANCmYgMjQvMjQvMjAxIDEwOC8xMDgvMzA0IDE5NC8xMDcvMzA1IA0KZiAyNC8yNC8yMDEgMTk0LzEwNy8zMDUgMTUxLzIzLzIwMiANCmYgMTA4LzEwOC8zMDQgMTEwLzExMC8zMDYgMTk1LzEwOS8zMDcgDQpmIDEwOC8xMDgvMzA0IDE5NS8xMDkvMzA3IDE5NC8xMDcvMzA1IA0KZiAxOTUvMTA5LzMwOCAxMTAvMTEwLzMwOSAxMTEvMTExLzMxMCANCmYgMTk1LzEwOS8zMDggMTExLzExMS8zMTAgMTEyLzExMi8zMTEgDQpmIDE5NC8xMDcvMzEyIDE5NS8xMDkvMzA4IDExMi8xMTIvMzExIDExMy8xMTMvMzEzIA0KZiAxNTEvMjMvMzE0IDE5NC8xMDcvMzEyIDExMy8xMTMvMzEzIA0KZiAxNTEvMjMvMzE0IDI2LzI2LzIwNyAxNTQvMjcvMjA2IDE1Mi8yMi8zMTUgDQpmIDE1MS8yMy8zMTQgMTEzLzExMy8zMTMgMjYvMjYvMjA3IA0KZiAyNS8yNS8yMDQgMTE0LzExNC8zMTYgMTUzLzI4LzIwNSANCmYgMTE0LzExNC8zMTYgMTE2LzExNi8zMTcgMTk2LzExNS8zMTggMTUzLzI4LzIwNSANCmYgMTE2LzExNi8zMTcgMTE3LzExNy8zMTkgMTk2LzExNS8zMTggDQpmIDE5Ni8xMTUvMzIwIDExNy8xMTcvMzIxIDExOC8xMTgvMzIyIA0KZiAxOTYvMTE1LzMyMCAxMTgvMTE4LzMyMiAxMTkvMTE5LzMyMyANCmYgMTk2LzExNS8zMjAgMTE5LzExOS8zMjMgMTIwLzEyMC8zMjQgMTUzLzI4LzMyNSANCmYgMTUzLzI4LzMyNSAxMjAvMTIwLzMyNCAxMjEvMTIxLzMyNiAxNTQvMjcvMzI3IA0KZiAxNTIvMjIvMzI4IDE1NC8yNy8zMjcgMTIxLzEyMS8zMjYgDQpmIDE5Ny8xMjIvMzI5IDE5OC8xMjQvMzMwIDEyMy8xMjMvMzMxIA0KZiAxOTgvMTI0LzMzMCAxMjEvMTIxLzMyNiAxMjMvMTIzLzMzMSANCmYgMTk3LzEyMi8zMjkgMTIzLzEyMy8zMzEgMTI2LzEyNi8zMzIgMTk5LzEyNS8zMzMgDQpmIDE5OS8xMjUvMzMzIDEyNi8xMjYvMzMyIDEyOC8xMjgvMzM0IDIwMC8xMjcvMzM1IA0KZiAyMDAvMTI3LzMzNSAxMjgvMTI4LzMzNCAxMjkvMTI5LzMzNiANCmYgMTU2LzMxLzIwOSAyMDEvMTMxLzMzNyAxMzAvMTMwLzMzOCANCmYgMjAxLzEzMS8zMzcgMTI5LzEyOS8zMzYgMTMwLzEzMC8zMzggDQpmIDIwMS8xMzEvMzM3IDIwMC8xMjcvMzM1IDEyOS8xMjkvMzM2IA0KZiAxNTYvMzEvMjA5IDEzMC8xMzAvMzM4IDEzMi8xMzIvMzM5IA0KZiAxNTYvMzEvMjA5IDEzMi8xMzIvMzM5IDE1Ny8zMC8yMTAgDQpmIDE1Ny8zMC8zNDAgMTMyLzEzMi8zNDEgMTMzLzEzMy8zNDIgDQpmIDE1NS8yOS8zNDMgMTU3LzMwLzM0MCAxMzQvMTM0LzM0NCANCmYgMTU3LzMwLzM0MCAxMzMvMTMzLzM0MiAxMzQvMTM0LzM0NCANCmYgMTU1LzI5LzM0MyAxMzQvMTM0LzM0NCAxMzUvMTM1LzM0NSANCmYgMjAyLzEzNi8zNDYgMTU1LzI5LzM0MyAxMzUvMTM1LzM0NSANCmYgMjAzLzEzNy8zNDcgMjA0LzEzOS8zNDggMTM4LzEzOC8zNDkgDQpmIDIwNC8xMzkvMzQ4IDIwMi8xMzYvMzQ2IDEzNS8xMzUvMzQ1IDEzOC8xMzgvMzQ5IA0KZiAyMDMvMTM3LzM0NyAxMzgvMTM4LzM0OSA2LzYvMTg1IA0KZiAyMDUvMTQwLzM1MCAyMDMvMTM3LzM0NyA2LzYvMTg1IA0KZiAxNDQvNy8xODQgMjA1LzE0MC8zNTAgNi82LzE4NSANCmYgMTk4LzEyNC8zMzAgMTUyLzIyLzMyOCAxMjEvMTIxLzMyNiANCmYgMTY5LzUyLzM1MSAxNjgvNTEvMzUyIDE0NC83LzM1MyAxNDMvNS8zNTQgDQpmIDE2My80Mi8yMTQgMjA1LzE0MC8yMTQgMTQ0LzcvMzUzIDE2NS80NS8yMTQgDQpmIDE2Ni80Ny8yMTQgMTY1LzQ1LzIxNCAxNDQvNy8zNTMgDQpmIDE2OC81MS8zNTIgMTY2LzQ3LzIxNCAxNDQvNy8zNTMgDQpmIDE0NS8xMC8yMTQgMTYwLzM1LzIxNCAxNjIvNDEvMjE0IA0KZiAxNzAvNTUvMjE0IDIwMy8xMzcvMjE0IDIwNS8xNDAvMjE0IDE1OC8zMi8yMTQgDQpmIDE2MC8zNS8yMTQgMTU4LzMyLzIxNCAyMDUvMTQwLzIxNCANCmYgMTYyLzQxLzIxNCAxNjAvMzUvMjE0IDIwNS8xNDAvMjE0IA0KZiAxNjMvNDIvMjE0IDE2Mi80MS8yMTQgMjA1LzE0MC8yMTQgDQpmIDE3MS81Ny8yMTQgMTcyLzU4LzIxNCAxNzYvNjcvMjE0IDE3NS82Ni8yMTQgDQpmIDE3Ni82Ny8yMTQgMTcyLzU4LzIxNCAxNDgvMTQvMjE0IA0KZiAxNzcvNjkvMjE0IDIwNC8xMzkvMjE0IDIwMy8xMzcvMjE0IDE3NS82Ni8yMTQgDQpmIDE3MS81Ny8yMTQgMTc1LzY2LzIxNCAyMDMvMTM3LzIxNCANCmYgMTcwLzU1LzIxNCAxNzEvNTcvMjE0IDIwMy8xMzcvMjE0IA0KZiAxNzgvNzMvMjE0IDIwMi8xMzYvMjE0IDIwNC8xMzkvMjE0IDE3Ny82OS8yMTQgDQpmIDE3OS83NC8yMTQgMTU1LzI5LzIxNCAyMDIvMTM2LzIxNCAxNzgvNzMvMjE0IA0KZiAxNzkvNzQvMjE0IDE4MS84MC8yMTQgMTgyLzgyLzIxNCAxNTUvMjkvMjE0IA0KZiAxNTYvMzEvMjE0IDE1NS8yOS8yMTQgMTgyLzgyLzIxNCANCmYgMTgxLzgwLzIxNCAxNzkvNzQvMjE0IDE1MC8xOC8yMTQgDQpmIDE4NC84Ny8yMTQgMTg1Lzg5LzIxNCAyMDAvMTI3LzIxNCAyMDEvMTMxLzIxNCANCmYgMTgzLzg0LzIxNCAxODQvODcvMjE0IDIwMS8xMzEvMjE0IDE1Ni8zMS8yMTQgDQpmIDE4Mi84Mi8yMTQgMTgzLzg0LzIxNCAxNTYvMzEvMjE0IA0KZiAxOTAvMTQxLzIxNCAxOTkvMTI1LzIxNCAyMDAvMTI3LzIxNCAxODkvOTkvMjE0IA0KZiAxOTEvMTAzLzIxNCAxOTIvMTA1LzIxNCAxOTcvMTIyLzIxNCAxOTkvMTI1LzIxNCANCmYgMTkwLzE0MS8yMTQgMTkxLzEwMy8yMTQgMTk5LzEyNS8yMTQgDQpmIDE5Mi8xMDUvMjE0IDE5My8xMDYvMjE0IDE5OC8xMjQvMjE0IDE5Ny8xMjIvMjE0IA0KZiAxNTIvMjIvMjE0IDE5OC8xMjQvMjE0IDE5My8xMDYvMjE0IA0KZiAxODkvOTkvMjE0IDIwMC8xMjcvMjE0IDE4Ni85MS8yMTQgDQpmIDE4NS84OS8yMTQgMTg2LzkxLzIxNCAyMDAvMTI3LzIxNCANCmYgNS81LzM1NSAyMDYvMTQyLzM1NSAyMDcvMTQzLzM1NSA2LzYvMzU1IA0KZiA1Mi81Mi8zNTYgMjA4LzE0NC8zNTYgMjA2LzE0Mi8zNTYgNS81LzM1NiANCmYgNTIvNTIvMzU3IDUwLzUwLzM1NyAyMDkvMTQ1LzM1NyAyMDgvMTQ0LzM1NyANCmYgMTY5LzUyLzM1OCAyMTAvMTQ0LzM1OCAyMDkvMTQ1LzM1OCA1MC81MC8zNTggDQpmIDE0My81LzM1OSAyMTEvMTQyLzM1OSAyMTAvMTQ0LzM1OSAxNjkvNTIvMzU5IA0KZiAxNDMvNS8zNjAgNi82LzM2MCAyMDcvMTQzLzM2MCAyMTEvMTQyLzM2MCANCmYgMjEyLzE0Ni8zNjEgMjEzLzE0Ny8zNjEgMjE0LzE0OC8zNjEgDQpmIDIwNi8xNDkvMzYyIDIxNS8xNTAvMzYzIDIxNi8xNTEvMzY0IDIwNy8xNTIvMzY1IA0KZiAyMDgvMTUzLzM2NiAyMTcvMTU0LzM2NyAyMTUvMTUwLzM2MyAyMDYvMTQ5LzM2MiANCmYgMjA5LzE1NS8zNjggMjE4LzE1Ni8zNjkgMjE3LzE1NC8zNjcgMjA4LzE1My8zNjYgDQpmIDIwOS8xNTcvMzcwIDIxMC8xNTgvMzcxIDIxOS8xNTkvMzcyIDIxOC8xNjAvMzczIA0KZiAyMTAvMTU4LzM3MSAyMTEvMTYxLzM3NCAyMjAvMTYyLzM3NSAyMTkvMTU5LzM3MiANCmYgMjExLzE2MS8zNzQgMjA3LzE1Mi8zNzYgMjE2LzE1MS8zNzcgMjIwLzE2Mi8zNzUgDQpmIDIxNS8xNTAvMzYzIDIyMS8xNjMvMzc4IDIyMi8xNjQvMzc5IDIxNi8xNTEvMzY0IA0KZiAyMTcvMTU0LzM2NyAyMjMvMTY1LzM4MCAyMjEvMTYzLzM3OCAyMTUvMTUwLzM2MyANCmYgMjE4LzE1Ni8zNjkgMjI0LzE2Ni8zODEgMjIzLzE2NS8zODAgMjE3LzE1NC8zNjcgDQpmIDIxOC8xNjAvMzczIDIxOS8xNTkvMzcyIDIyNS8xNjcvMzgyIDIyNC8xNjgvMzgzIA0KZiAyMTkvMTU5LzM3MiAyMjAvMTYyLzM3NSAyMjYvMTY5LzM4NCAyMjUvMTY3LzM4MiANCmYgMjIwLzE2Mi8zNzUgMjE2LzE1MS8zNzcgMjIyLzE2NC8zODUgMjI2LzE2OS8zODQgDQpmIDIyMi8xNzAvMzg2IDIyMS8xNzEvMzg3IDIyNy8xNzIvMzg4IDIyOC8xNzMvMzg5IA0KZiAyMjEvMTcxLzM4NyAyMjMvMTc0LzM5MCAyMjkvMTc1LzM5MSAyMjcvMTcyLzM4OCANCmYgMjIzLzE3NC8zOTAgMjI0LzE3Ni8zOTIgMjMwLzE3Ny8zOTMgMjI5LzE3NS8zOTEgDQpmIDIyNS8xNzgvMzk0IDIzMS8xNzkvMzk1IDIzMC8xODAvMzk2IDIyNC8xODEvMzk3IA0KZiAyMjYvMTgyLzM5OCAyMzIvMTgzLzM5OSAyMzEvMTc5LzM5NSAyMjUvMTc4LzM5NCANCmYgMjIyLzE3MC80MDAgMjI4LzE3My80MDEgMjMyLzE4My8zOTkgMjI2LzE4Mi8zOTggDQpmIDIyNy8xODQvNDAyIDIzMy8xODUvNDAzIDIzNC8xODYvNDA0IDIyOC8xODcvNDA1IA0KZiAyMjkvMTg4LzQwNiAyMzUvMTg5LzQwNyAyMzMvMTg1LzQwMyAyMjcvMTg0LzQwMiANCmYgMjMwLzE5MC80MDggMjM2LzE5MS80MDkgMjM1LzE4OS80MDcgMjI5LzE4OC80MDYgDQpmIDIzMC8xOTIvNDEwIDIzMS8xOTMvNDExIDIzNy8xOTQvNDEyIDIzNi8xOTUvNDEzIA0KZiAyMzEvMTkzLzQxMSAyMzIvMTk2LzQxNCAyMzgvMTk3LzQxNSAyMzcvMTk0LzQxMiANCmYgMjMyLzE5Ni80MTQgMjI4LzE4Ny80MTYgMjM0LzE4Ni80MTcgMjM4LzE5Ny80MTUgDQpmIDIzMy8xOTgvNDE4IDIzOS8xOTkvNDE5IDI0MC8yMDAvNDIwIDIzNC8yMDEvNDIxIA0KZiAyMzUvMjAyLzQyMiAyNDEvMjAzLzQyMyAyMzkvMTk5LzQxOSAyMzMvMTk4LzQxOCANCmYgMjM1LzIwMi80MjIgMjM2LzIwNC80MjQgMjQyLzIwNS80MjUgMjQxLzIwMy80MjMgDQpmIDIzNy8yMDYvNDI2IDI0My8yMDcvNDI3IDI0Mi8yMDgvNDI4IDIzNi8yMDkvNDI5IA0KZiAyMzcvMjA2LzQyNiAyMzgvMjEwLzQzMCAyNDQvMjExLzQzMSAyNDMvMjA3LzQyNyANCmYgMjM4LzIxMC80MzAgMjM0LzIwMS80MzIgMjQwLzIwMC80MzMgMjQ0LzIxMS80MzEgDQpmIDIzOS8xOTkvNDE5IDI0NS8yMTIvNDM0IDI0Ni8yMTMvNDM1IDI0MC8yMDAvNDIwIA0KZiAyNDEvMjAzLzQyMyAyNDcvMjE0LzQzNiAyNDUvMjEyLzQzNCAyMzkvMTk5LzQxOSANCmYgMjQyLzIwNS80MjUgMjQ4LzIxNS80MzcgMjQ3LzIxNC80MzYgMjQxLzIwMy80MjMgDQpmIDI0My8yMDcvNDI3IDI0OS8yMTYvNDM4IDI0OC8yMTcvNDM5IDI0Mi8yMDgvNDI4IA0KZiAyNDMvMjA3LzQyNyAyNDQvMjExLzQzMSAyNTAvMjE4LzQ0MCAyNDkvMjE2LzQzOCANCmYgMjQ0LzIxMS80MzEgMjQwLzIwMC80MzMgMjQ2LzIxMy80NDEgMjUwLzIxOC80NDAgDQpmIDI0Ni8yMTMvNDM1IDI0NS8yMTIvNDM0IDI1MS8yMTkvNDQyIDI1Mi8yMjAvNDQzIA0KZiAyNDUvMjEyLzQzNCAyNDcvMjE0LzQzNiAyNTMvMjIxLzQ0NCAyNTEvMjE5LzQ0MiANCmYgMjQ3LzIxNC80MzYgMjQ4LzIxNS80MzcgMjU0LzIyMi80NDUgMjUzLzIyMS80NDQgDQpmIDI0OS8yMTYvNDM4IDI1NS8yMjMvNDQ2IDI1NC8yMjQvNDQ3IDI0OC8yMTcvNDM5IA0KZiAyNTAvMjE4LzQ0MCAyNTYvMjI1LzQ0OCAyNTUvMjIzLzQ0NiAyNDkvMjE2LzQzOCANCmYgMjQ2LzIxMy80NDEgMjUyLzIyMC80NDkgMjU2LzIyNS80NDggMjUwLzIxOC80NDAgDQpmIDI1MS8yMTkvNDQyIDI1Ny8yMjYvNDUwIDI1OC8yMjcvNDUxIDI1Mi8yMjAvNDQzIA0KZiAyNTMvMjIxLzQ0NCAyNTkvMjI4LzQ1MiAyNTcvMjI2LzQ1MCAyNTEvMjE5LzQ0MiANCmYgMjU0LzIyMi80NDUgMjYwLzIyOS80NTMgMjU5LzIyOC80NTIgMjUzLzIyMS80NDQgDQpmIDI1NC8yMjQvNDQ3IDI1NS8yMjMvNDQ2IDI2MS8yMzAvNDU0IDI2MC8yMzEvNDU1IA0KZiAyNTUvMjIzLzQ0NiAyNTYvMjI1LzQ0OCAyNjIvMjMyLzQ1NiAyNjEvMjMwLzQ1NCANCmYgMjU2LzIyNS80NDggMjUyLzIyMC80NDkgMjU4LzIyNy80NTcgMjYyLzIzMi80NTYgDQpmIDI1OC8yMzMvNDU4IDI1Ny8yMzQvNDU5IDI2My8yMzUvNDYwIDI2NC8yMzYvNDU4IA0KZiAyNTkvMjM3LzQ2MSAyNjUvMjM4LzQ2MiAyNjMvMjM1LzQ2MCAyNTcvMjM0LzQ1OSANCmYgMjYwLzIzOS80NjMgMjY2LzI0MC80NjMgMjY1LzIzOC80NjIgMjU5LzIzNy80NjEgDQpmIDI2MC8yNDEvNDY0IDI2MS8yNDIvNDY1IDI2Ny8yNDMvNDY2IDI2Ni8yNDQvNDY3IA0KZiAyNjIvMjQ1LzQ2OCAyNjgvMjQ2LzQ2OSAyNjcvMjQzLzQ2NiAyNjEvMjQyLzQ2NSANCmYgMjU4LzIzMy80NzAgMjY0LzIzNi80NzEgMjY4LzI0Ni80NjkgMjYyLzI0NS80NjggDQpmIDI2My8yMzUvNDcyIDIxMy8yNDcvNDczIDIxMi8yNDgvNDc0IDI2NC8yMzYvNDc0IA0KZiAyNjUvMjM4LzQ3NSAyNjkvMjQ5LzQ3NiAyMTMvMjQ3LzQ3MyAyNjMvMjM1LzQ3MiANCmYgMjY1LzIzOC80NzUgMjY2LzI0MC80NzcgMjcwLzI1MC80NzcgMjY5LzI0OS80NzYgDQpmIDI2Ny8yNDMvNDc4IDI3MS8yNTEvNDc5IDI3MC8yNTIvNDgwIDI2Ni8yNDQvNDgxIA0KZiAyNjgvMjQ2LzQ4MiAyMTQvMjUzLzQ4MyAyNzEvMjUxLzQ3OSAyNjcvMjQzLzQ3OCANCmYgMjY4LzI0Ni80ODIgMjY0LzIzNi80ODQgMjEyLzI0OC80ODUgMjE0LzI1My80ODMgDQpmIDI3MS8yNTQvNDg2IDIxNC8xNDgvNDg2IDIxMy8xNDcvNDg2IDI2OS8yNTUvNDg2IA0KZiAyNjkvMjU1LzQ4NyAyNzAvMjU2LzQ4NyAyNzEvMjU0LzQ4NyANCiMgMTY3IHBvbHlnb25zIC0gMjA0IHRyaWFuZ2xlcw0KDQo=",
+      daggerTexture: __asset("a01"),
+      obj: __asset("a02"),
+      wallColor: __asset("a03"),
+      wallNormal: __asset("a04"),
+      wallRough: __asset("a05"),
+      floorColor: __asset("a06"),
+      floorNormal: __asset("a07"),
+      floorRough: __asset("a08")
+    };
+
+    const canvas = document.querySelector("#game");
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = .74;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#45535a");
+    scene.fog = new THREE.Fog("#56646a", 34, 118);
+
+    const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.05, 240);
+    camera.rotation.order = "YXZ";
+    scene.add(camera);
+
+    const COFFEE_BROWN = 0x8a583b;
+    const coffeeBrownMaterial = new THREE.MeshStandardMaterial({ color: COFFEE_BROWN, roughness: .88, metalness: 0 });
+    const handRig = new THREE.Group();
+    const leftHand = new THREE.Group();
+    const rightHand = new THREE.Group();
+    const weaponMount = new THREE.Group();
+
+    function createHand(side) {
+      const hand = side < 0 ? leftHand : rightHand;
+      const home = { x: side * .47, y: -.42, z: -.78 };
+      hand.position.set(home.x, home.y, home.z);
+      hand.userData.home = home;
+      hand.userData.restRotation = { x: .12, y: side * .08, z: side * .16 };
+      hand.rotation.set(hand.userData.restRotation.x, hand.userData.restRotation.y, hand.userData.restRotation.z);
+
+      const wrist = new THREE.Mesh(new THREE.CylinderGeometry(.095, .12, .24, 12), coffeeBrownMaterial);
+      wrist.rotation.x = Math.PI / 2;
+      wrist.position.z = .14;
+      const palm = new THREE.Mesh(new THREE.BoxGeometry(.29, .25, .2), coffeeBrownMaterial);
+      palm.position.z = -.005;
+      palm.rotation.z = side * .08;
+      hand.add(wrist, palm);
+
+      const fingerLengths = [.19, .245, .26, .235, .17];
+      const fingerXs = [-.105, -.052, .005, .062, .12];
+      fingerLengths.forEach((length, index) => {
+        const finger = new THREE.Mesh(new THREE.CylinderGeometry(.035, .042, length, 8), coffeeBrownMaterial);
+        finger.rotation.x = Math.PI / 2;
+        finger.position.set(fingerXs[index], .045 - Math.abs(index - 2) * .008, -.145 - length * .42);
+        hand.add(finger);
+      });
+      const thumb = new THREE.Mesh(new THREE.CylinderGeometry(.04, .048, .19, 8), coffeeBrownMaterial);
+      thumb.rotation.set(Math.PI / 2, 0, side * .78);
+      thumb.position.set(side * .155, -.025, -.09);
+      hand.add(thumb);
+      hand.traverse((part) => { if (part.isMesh) { part.castShadow = true; part.frustumCulled = false; } });
+      return hand;
+    }
+
+    createHand(-1);
+    createHand(1);
+    leftHand.add(weaponMount);
+    weaponMount.position.set(0, -.02, -.2);
+    weaponMount.rotation.set(.08, -.18, -.14);
+    handRig.add(leftHand, rightHand);
+    camera.add(handRig);
+
+    let playerEyeHeight = 1.90;
+    const player = new THREE.Vector3(0, playerEyeHeight, -15);
+    let yaw = Math.PI;
+    let pitch = -0.04;
+    const clock = new THREE.Clock();
+    const keys = new Set();
+    const velocity = new THREE.Vector3();
+    const forward = new THREE.Vector3();
+    const right = new THREE.Vector3();
+    const wish = new THREE.Vector3();
+    let mixer = null;
+    let modelMixers = [];
+    let prison = null;
+    let walkPhase = 0;
+    let walkBlend = 0;
+
+    const hemi = new THREE.HemisphereLight("#aeb9b8", "#17211c", 1.25);
+    scene.add(hemi);
+    const sun = new THREE.DirectionalLight("#d7d8cb", 1.65);
+    sun.position.set(-28, 42, -22);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = -60; sun.shadow.camera.right = 60;
+    sun.shadow.camera.top = 60; sun.shadow.camera.bottom = -60;
+    sun.shadow.bias = -0.00025;
+    scene.add(sun);
+
+    const weatherSelect = document.querySelector("#weather-select");
+    const playerHeightInput = document.querySelector("#player-height");
+    const playerHeightValue = document.querySelector("#player-height-value");
+    const handSideSelect = document.querySelector("#hand-side-select");
+    const handSizeTarget = document.querySelector("#hand-size-target");
+    const handSizeInput = document.querySelector("#hand-size");
+    const handSizeValue = document.querySelector("#hand-size-value");
+    const walkSpeedInput = document.querySelector("#walk-speed");
+    const walkSpeedValue = document.querySelector("#walk-speed-value");
+    const runSpeedInput = document.querySelector("#run-speed");
+    const runSpeedValue = document.querySelector("#run-speed-value");
+    const crouchSpeedInput = document.querySelector("#crouch-speed");
+    const crouchSpeedValue = document.querySelector("#crouch-speed-value");
+    const jumpHeightInput = document.querySelector("#jump-height");
+    const jumpHeightValue = document.querySelector("#jump-height-value");
+    const gravityInput = document.querySelector("#gravity");
+    const gravityValue = document.querySelector("#gravity-value");
+    const crouchToggle = document.querySelector("#toggle-crouch");
+    const sprintToggle = document.querySelector("#toggle-sprint");
+    const jumpToggle = document.querySelector("#toggle-jump");
+    const flyToggle = document.querySelector("#toggle-fly");
+    const crawlToggle = document.querySelector("#toggle-crawl");
+    const povSelect = document.querySelector("#pov-select");
+    const povDistanceInput = document.querySelector("#pov-distance");
+    const povDistanceValue = document.querySelector("#pov-distance-value");
+    const fovInput = document.querySelector("#fov-range");
+    const fovValue = document.querySelector("#fov-value");
+    const sprintAction = document.querySelector("#sprint-action");
+    const crouchAction = document.querySelector("#crouch-action");
+    const jumpAction = document.querySelector("#jump-action");
+    const flyAction = document.querySelector("#fly-action");
+    const actionState = { sprint: false, crouch: false, jump: false };
+    const handScaleValues = { left: 1, right: 1 };
+    const movementSettings = {
+      walkSpeed: 5.6,
+      runSpeed: 9.5,
+      crouchSpeed: 2.8,
+      jumpHeight: 1.3,
+      gravity: 16,
+      crouchEnabled: true,
+      sprintEnabled: true,
+      jumpEnabled: true,
+      flyAround: false,
+      crawlMode: false
+    };
+    const cameraSettings = { firstPerson: true, povDistance: 4.5, fov: 72 };
+    let jumpQueued = false;
+    let verticalVelocity = 0;
+    let isGrounded = true;
+    let isCrouching = false;
+    let activeHandSide = "left";
+    const weatherState = { key: "day", lightning: 0 };
+    const weatherGroup = new THREE.Group();
+    const rainGroup = new THREE.Group();
+    const snowGroup = new THREE.Group();
+    const bloodMoonGroup = new THREE.Group();
+    const rainMaterial = new THREE.LineBasicMaterial({ color: "#b8d5e4", transparent: true, opacity: .48, depthWrite: false });
+    const snowMaterial = new THREE.PointsMaterial({ color: "#f2f5f0", size: .13, transparent: true, opacity: .82, depthWrite: false, sizeAttenuation: true });
+    const bloodMoon = new THREE.Mesh(
+      new THREE.SphereGeometry(3.1, 24, 16),
+      new THREE.MeshBasicMaterial({ color: "#8d1228" })
+    );
+    const bloodMoonLight = new THREE.PointLight("#8d1228", 0, 42, 2);
+    bloodMoonGroup.add(bloodMoon, bloodMoonLight);
+    weatherGroup.add(rainGroup, snowGroup, bloodMoonGroup);
+    scene.add(weatherGroup);
+
+    for (let i = 0; i < 180; i++) {
+      const length = .55 + Math.random() * .5;
+      const geometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, -length, 0)
+      ]);
+      const streak = new THREE.Line(geometry, rainMaterial);
+      streak.position.set(player.x - 24 + Math.random() * 48, .5 + Math.random() * 20, player.z - 24 + Math.random() * 48);
+      streak.userData.speed = 14 + Math.random() * 9;
+      rainGroup.add(streak);
+    }
+
+    const snowCount = 420;
+    const snowPositions = new Float32Array(snowCount * 3);
+    const snowSpeeds = new Float32Array(snowCount);
+    for (let i = 0; i < snowCount; i++) {
+      snowPositions[i * 3] = player.x - 26 + Math.random() * 52;
+      snowPositions[i * 3 + 1] = .3 + Math.random() * 20;
+      snowPositions[i * 3 + 2] = player.z - 26 + Math.random() * 52;
+      snowSpeeds[i] = 1.2 + Math.random() * 1.7;
+    }
+    const snowGeometry = new THREE.BufferGeometry();
+    snowGeometry.setAttribute("position", new THREE.Float32BufferAttribute(snowPositions, 3));
+    const snowField = new THREE.Points(snowGeometry, snowMaterial);
+    snowGroup.add(snowField);
+
+    const weatherPresets = {
+      day: { background: "#45535a", fog: "#56646a", fogNear: 34, fogFar: 118, hemi: "#aeb9b8", ground: "#17211c", hemiIntensity: 1.25, sun: "#d7d8cb", sunIntensity: 1.65, exposure: .74, rain: false, snow: false, moon: false },
+      noon: { background: "#71828a", fog: "#7c8c90", fogNear: 38, fogFar: 132, hemi: "#d8e5df", ground: "#26352d", hemiIntensity: 1.55, sun: "#fff5d5", sunIntensity: 2.15, exposure: .92, rain: false, snow: false, moon: false },
+      rain: { background: "#35434a", fog: "#435158", fogNear: 24, fogFar: 92, hemi: "#91a2a5", ground: "#101915", hemiIntensity: .92, sun: "#abb9bc", sunIntensity: .72, exposure: .62, rain: true, snow: false, moon: false },
+      storm: { background: "#202d35", fog: "#303d45", fogNear: 18, fogFar: 76, hemi: "#708287", ground: "#0b1110", hemiIntensity: .68, sun: "#90a6b0", sunIntensity: .38, exposure: .5, rain: true, snow: false, moon: false, thunder: true },
+      snow: { background: "#839095", fog: "#b6c2c2", fogNear: 18, fogFar: 94, hemi: "#dce7e7", ground: "#52615d", hemiIntensity: 1.5, sun: "#edf5f0", sunIntensity: 1.15, exposure: .82, rain: false, snow: true, moon: false },
+      bright: { background: "#8ea6a2", fog: "#a9bbb0", fogNear: 44, fogFar: 156, hemi: "#edf5df", ground: "#40513a", hemiIntensity: 1.9, sun: "#fff4c7", sunIntensity: 2.8, exposure: 1.08, rain: false, snow: false, moon: false },
+      blood: { background: "#160f18", fog: "#27151e", fogNear: 14, fogFar: 68, hemi: "#6d3545", ground: "#090708", hemiIntensity: .42, sun: "#4b1724", sunIntensity: .16, exposure: .46, rain: false, snow: false, moon: true, moonIntensity: 1.9 }
+    };
+
+    function applyWeather(key) {
+      const preset = weatherPresets[key] || weatherPresets.day;
+      weatherState.key = key;
+      weatherState.lightning = 0;
+      scene.background.set(preset.background);
+      scene.fog.color.set(preset.fog);
+      scene.fog.near = preset.fogNear;
+      scene.fog.far = preset.fogFar;
+      hemi.color.set(preset.hemi);
+      hemi.groundColor.set(preset.ground);
+      hemi.intensity = preset.hemiIntensity;
+      sun.color.set(preset.sun);
+      sun.intensity = preset.sunIntensity;
+      renderer.toneMappingExposure = preset.exposure;
+      rainGroup.visible = Boolean(preset.rain);
+      snowGroup.visible = Boolean(preset.snow);
+      bloodMoonGroup.visible = Boolean(preset.moon);
+      bloodMoonLight.intensity = preset.moon ? preset.moonIntensity : 0;
+      bloodMoon.position.set(player.x - 20, 25, player.z - 48);
+      weatherSelect.value = key;
+    }
+
+    weatherSelect.addEventListener("change", () => applyWeather(weatherSelect.value));
+
+    function updatePlayerHeight(value) {
+      playerEyeHeight = THREE.MathUtils.clamp(Number(value), 1.70, 2.20);
+      player.y = playerEyeHeight;
+      playerHeightInput.value = playerEyeHeight.toFixed(2);
+      playerHeightValue.textContent = `${playerEyeHeight.toFixed(2)} m`;
+    }
+
+    function setWeaponHand(side) {
+      activeHandSide = side === "right" ? "right" : "left";
+      const hand = activeHandSide === "right" ? rightHand : leftHand;
+      hand.add(weaponMount);
+      const mirror = activeHandSide === "right" ? 1 : -1;
+      weaponMount.position.set(0, -.02, -.2);
+      weaponMount.rotation.set(.08, mirror * .18, mirror * .14);
+      handSideSelect.value = activeHandSide;
+    }
+
+    function syncHandSizeControl() {
+      const target = handSizeTarget.value;
+      const size = target === "both"
+        ? (handScaleValues.left + handScaleValues.right) / 2
+        : handScaleValues[target];
+      handSizeInput.value = size.toFixed(2);
+      handSizeValue.textContent = `${Math.round(size * 100)}%`;
+    }
+
+    function applyHandSize(value) {
+      const size = THREE.MathUtils.clamp(Number(value), .65, 1.45);
+      if (handSizeTarget.value === "both") {
+        handScaleValues.left = size;
+        handScaleValues.right = size;
+      } else {
+        handScaleValues[handSizeTarget.value] = size;
+      }
+      leftHand.scale.setScalar(handScaleValues.left);
+      rightHand.scale.setScalar(handScaleValues.right);
+      syncHandSizeControl();
+    }
+
+    playerHeightInput.addEventListener("input", () => updatePlayerHeight(playerHeightInput.value));
+    handSideSelect.addEventListener("change", () => setWeaponHand(handSideSelect.value));
+    handSizeTarget.addEventListener("change", syncHandSizeControl);
+    handSizeInput.addEventListener("input", () => applyHandSize(handSizeInput.value));
+    syncHandSizeControl();
+
+    function updateMovementRange(input, output, key, suffix = "") {
+      movementSettings[key] = Number(input.value);
+      output.textContent = `${movementSettings[key].toFixed(1)}${suffix}`;
+    }
+
+    function bindMovementRange(input, output, key, suffix = "") {
+      input.addEventListener("input", () => updateMovementRange(input, output, key, suffix));
+      updateMovementRange(input, output, key, suffix);
+    }
+
+    function updateMovementToggle(button, key, label) {
+      button.textContent = `${label}: ${movementSettings[key] ? "ON" : "OFF"}`;
+      button.classList.toggle("on", movementSettings[key]);
+      button.setAttribute("aria-pressed", String(movementSettings[key]));
+      if (key === "flyAround") {
+        flyAction.textContent = movementSettings.flyAround ? "FLY ON" : "FLY";
+        flyAction.classList.toggle("active", movementSettings.flyAround);
+        flyAction.setAttribute("aria-pressed", String(movementSettings.flyAround));
+      }
+    }
+
+    function bindMovementToggle(button, key, label) {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        movementSettings[key] = !movementSettings[key];
+        updateMovementToggle(button, key, label);
+        if (key === "flyAround") verticalVelocity = 0;
+      });
+      updateMovementToggle(button, key, label);
+    }
+
+    function updateActionButton(button, active) {
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    }
+
+    function bindHoldAction(button, key) {
+      const start = (event) => {
+        event.preventDefault();
+        actionState[key] = true;
+        updateActionButton(button, true);
+        if (event.pointerId !== undefined) button.setPointerCapture?.(event.pointerId);
+        if (key === "jump" && !movementSettings.flyAround) jumpQueued = true;
+      };
+      const end = (event) => {
+        event.preventDefault();
+        actionState[key] = false;
+        updateActionButton(button, false);
+      };
+      button.addEventListener("pointerdown", start);
+      button.addEventListener("pointerup", end);
+      button.addEventListener("pointercancel", end);
+      button.addEventListener("lostpointercapture", end);
+    }
+
+    flyAction.addEventListener("click", (event) => {
+      event.preventDefault();
+      movementSettings.flyAround = !movementSettings.flyAround;
+      updateMovementToggle(flyToggle, "flyAround", "FLY AROUND");
+      verticalVelocity = 0;
+    });
+
+    bindHoldAction(sprintAction, "sprint");
+    bindHoldAction(crouchAction, "crouch");
+    bindHoldAction(jumpAction, "jump");
+
+    bindMovementRange(walkSpeedInput, walkSpeedValue, "walkSpeed");
+    bindMovementRange(runSpeedInput, runSpeedValue, "runSpeed");
+    bindMovementRange(crouchSpeedInput, crouchSpeedValue, "crouchSpeed");
+    bindMovementRange(jumpHeightInput, jumpHeightValue, "jumpHeight", " m");
+    bindMovementRange(gravityInput, gravityValue, "gravity");
+    bindMovementToggle(crouchToggle, "crouchEnabled", "CROUCH");
+    bindMovementToggle(sprintToggle, "sprintEnabled", "SPRINT");
+    bindMovementToggle(jumpToggle, "jumpEnabled", "JUMP");
+    bindMovementToggle(flyToggle, "flyAround", "FLY AROUND");
+    bindMovementToggle(crawlToggle, "crawlMode", "CRAWL MODE");
+
+    function updatePointOfView() {
+      cameraSettings.firstPerson = povSelect.value === "first";
+      handRig.visible = cameraSettings.firstPerson;
+    }
+
+    povSelect.addEventListener("change", updatePointOfView);
+    povDistanceInput.addEventListener("input", () => {
+      cameraSettings.povDistance = Number(povDistanceInput.value);
+      povDistanceValue.textContent = `${cameraSettings.povDistance.toFixed(1)} m`;
+    });
+    fovInput.addEventListener("input", () => {
+      cameraSettings.fov = Number(fovInput.value);
+      fovValue.textContent = `${cameraSettings.fov.toFixed(0)}°`;
+      camera.fov = cameraSettings.fov;
+      camera.updateProjectionMatrix();
+    });
+    updatePointOfView();
+
+    applyWeather("day");
+
+    function updateWeatherEffects(dt) {
+      const preset = weatherPresets[weatherState.key];
+      if (preset.rain) {
+        rainGroup.children.forEach((streak) => {
+          streak.position.y -= streak.userData.speed * dt;
+          streak.position.x += Math.sin(performance.now() * .001 + streak.position.z) * dt * .25;
+          if (streak.position.y < .1 || Math.hypot(streak.position.x - player.x, streak.position.z - player.z) > 34) {
+            streak.position.set(player.x - 24 + Math.random() * 48, 16 + Math.random() * 8, player.z - 24 + Math.random() * 48);
+          }
+        });
+      }
+      if (preset.snow) {
+        const positions = snowGeometry.attributes.position;
+        for (let i = 0; i < snowCount; i++) {
+          const y = positions.getY(i) - snowSpeeds[i] * dt;
+          const x = positions.getX(i) + Math.sin(performance.now() * .0007 + i) * dt * .35;
+          const z = positions.getZ(i) + Math.cos(performance.now() * .0005 + i) * dt * .2;
+          if (y < .1 || Math.hypot(x - player.x, z - player.z) > 36) {
+            positions.setXYZ(i, player.x - 26 + Math.random() * 52, 18 + Math.random() * 4, player.z - 26 + Math.random() * 52);
+          } else {
+            positions.setXYZ(i, x, y, z);
+          }
+        }
+        positions.needsUpdate = true;
+      }
+      if (preset.moon) bloodMoon.position.set(player.x - 20, 25, player.z - 48);
+      if (preset.thunder && Math.random() < dt * .11) weatherState.lightning = .12 + Math.random() * .16;
+      if (weatherState.lightning > 0) {
+        weatherState.lightning -= dt;
+        sun.intensity = preset.sunIntensity + 3.8;
+        renderer.toneMappingExposure = preset.exposure + .65;
+      } else if (sun.intensity !== preset.sunIntensity) {
+        sun.intensity = preset.sunIntensity;
+        renderer.toneMappingExposure = preset.exposure;
+      }
+    }
+
+
+    function canvasTexture(draw, size = 256) {
+      const c = document.createElement("canvas");
+      c.width = c.height = size;
+      draw(c.getContext("2d"), size);
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      return t;
+    }
+    const grassTexture = canvasTexture((ctx, size) => {
+      ctx.fillStyle = "#405a43"; ctx.fillRect(0, 0, size, size);
+      for (let i = 0; i < 2600; i++) {
+        const x = Math.random() * size, y = Math.random() * size;
+        const tone = 78 + Math.floor(Math.random() * 48);
+        ctx.strokeStyle = `rgba(${tone},${tone + 35},${tone - 8},${0.07 + Math.random() * 0.17})`;
+        ctx.lineWidth = .5 + Math.random() * 1.2;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (Math.random() - .5) * 2, y - 2 - Math.random() * 4); ctx.stroke();
+      }
+    });
+    grassTexture.repeat.set(42, 42);
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(210, 210),
+      new THREE.MeshStandardMaterial({ map: grassTexture, color: "#73866d", roughness: 1, metalness: 0 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -.05;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+
+    const windGroup = new THREE.Group();
+    const windMaterial = new THREE.LineBasicMaterial({ color: "#c7d0c5", transparent: true, opacity: .16, depthWrite: false });
+    for (let i = 0; i < 110; i++) {
+      const length = 1.2 + Math.random() * 2.8;
+      const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0, 0, 0),
+          new THREE.Vector3(length, .04 + Math.random() * .14, 0)
+        ]),
+        windMaterial
+      );
+      line.position.set(-72 + Math.random() * 144, .25 + Math.random() * 2.4, -64 + Math.random() * 128);
+      line.userData.speed = 5.5 + Math.random() * 4.5;
+      line.userData.drift = (Math.random() - .5) * .18;
+      windGroup.add(line);
+    }
+    const cloudGroup = new THREE.Group();
+    for (let i = 0; i < 8; i++) {
+      const cloud = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 12, 8),
+        new THREE.MeshBasicMaterial({ color: "#354148", transparent: true, opacity: .48, depthWrite: false })
+      );
+      cloud.scale.set(7 + Math.random() * 9, 1.1 + Math.random() * 1.8, 2.4 + Math.random() * 3.2);
+      cloud.position.set(-72 + Math.random() * 144, 24 + Math.random() * 16, -55 + Math.random() * 100);
+      cloud.userData.speed = .35 + Math.random() * .35;
+      cloudGroup.add(cloud);
+    }
+    scene.add(windGroup, cloudGroup);
+    function updateWind(dt) {
+      windGroup.children.forEach((line) => {
+        line.position.x += line.userData.speed * dt;
+        line.position.z += line.userData.drift * dt;
+        if (line.position.x > 74) {
+          line.position.x = -74;
+          line.position.z = -64 + Math.random() * 128;
+          line.position.y = .25 + Math.random() * 2.4;
+        }
+      });
+      cloudGroup.children.forEach((cloud) => {
+        cloud.position.x += cloud.userData.speed * dt;
+        if (cloud.position.x > 86) cloud.position.x = -86;
+      });
+    }
+
+    const pathMat = new THREE.MeshBasicMaterial({ color: "#4b4a42", side: THREE.DoubleSide });
+    const pathGroup = new THREE.Group();
+    for (let i = 0; i < 8; i++) {
+      const path = new THREE.Mesh(new THREE.PlaneGeometry(8, 42), pathMat);
+      path.rotation.x = -Math.PI / 2;
+      path.position.set((i - 3.5) * 19.5, -.04, -14);
+      path.receiveShadow = true;
+      pathGroup.add(path);
+    }
+    scene.add(pathGroup);
+
+    // A numbered freestanding marker for every repeated cell module.
+    const cellSignGroup = new THREE.Group();
+    const signPostMaterial = new THREE.MeshStandardMaterial({ color: "#242a28", roughness: .72, metalness: .62 });
+    function createCellSign(index) {
+      const sign = new THREE.Group();
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(.055, .075, 1.55, 10), signPostMaterial);
+      post.position.y = .78;
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(.095, .095, .06, 10), signPostMaterial);
+      cap.position.y = 1.58;
+      const signCanvas = document.createElement("canvas");
+      signCanvas.width = 320; signCanvas.height = 180;
+      const signContext = signCanvas.getContext("2d");
+      signContext.fillStyle = "#1d2926";
+      signContext.fillRect(0, 0, signCanvas.width, signCanvas.height);
+      signContext.strokeStyle = "#a8b49b";
+      signContext.lineWidth = 6;
+      signContext.strokeRect(8, 8, signCanvas.width - 16, signCanvas.height - 16);
+      signContext.fillStyle = "#eef0da";
+      signContext.font = "700 92px Georgia, serif";
+      signContext.textAlign = "center";
+      signContext.textBaseline = "middle";
+      signContext.fillText(`#${index + 1}`, signCanvas.width / 2, signCanvas.height / 2 + 5);
+      const signTexture = new THREE.CanvasTexture(signCanvas);
+      signTexture.colorSpace = THREE.SRGBColorSpace;
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(1.25, .7, .08), new THREE.MeshStandardMaterial({ map: signTexture, roughness: .62, metalness: .18 }));
+      plate.position.y = 1.95;
+      sign.add(post, cap, plate);
+      sign.position.set((index - 3.5) * 19.5, 0, 3.55);
+      sign.traverse((part) => { if (part.isMesh) { part.castShadow = true; part.receiveShadow = true; } });
+      return sign;
+    }
+    for (let i = 0; i < 8; i++) cellSignGroup.add(createCellSign(i));
+    scene.add(cellSignGroup);
+
+    // Cell 1's resident. The USDZ loader keeps the model's embedded body,
+    // clothing, hair, eye and normal-map textures intact.
+    const zuCellRoot = new THREE.Group();
+    const cellOneX = (0 - 3.5) * 19.5;
+    zuCellRoot.position.set(cellOneX, 0, 6.00);
+    scene.add(zuCellRoot);
+    const dollTwoCellRoot = new THREE.Group();
+    dollTwoCellRoot.position.set(cellOneX, 0, 6.00);
+    scene.add(dollTwoCellRoot);
+    const dollThreeCellRoot = new THREE.Group();
+    const cellTwoX = (1 - 3.5) * 19.5;
+    dollThreeCellRoot.position.set(cellTwoX, 0, 6.00);
+    scene.add(dollThreeCellRoot);
+    const zuPose = { model: null, pitch: 0, targetHeight: 0.80, size: 1, baseScale: null, basePosition: null };
+    const dollTwoPose = { model: null, pitch: 0, targetHeight: 0.80, size: 1, baseScale: null, basePosition: null };
+    const dollThreePose = { model: null, pitch: 0, targetHeight: 0.80, size: 1, baseScale: null, basePosition: null };
+    const settingsButton = document.querySelector("#settings-button");
+    const settingsPanel = document.querySelector("#settings-panel");
+    let zuDragMode = false;
+    const zuDragToggle = document.querySelector("#zu-drag-toggle");
+    const dollsChaseToggle = document.querySelector("#dolls-chase-toggle");
+    const dollSizeTarget = document.querySelector("#doll-size-target");
+    const dollSizeInput = document.querySelector("#doll-size");
+    const dollSizeValue = document.querySelector("#doll-size-value");
+    const dollSizeValues = { doll_1: 1, doll_2: 1, doll_3: 1 };
+    const dollPoses = { doll_1: zuPose, doll_2: dollTwoPose, doll_3: dollThreePose };
+    let dollsChaseEnabled = false;
+    const zuPhysics = {
+      grabbed: false,
+      anchor: new THREE.Vector3(),
+      target: new THREE.Vector3(),
+      current: new THREE.Vector3(),
+      velocity: new THREE.Vector3()
+    };
+    const dollTwoPhysics = {
+      grabbed: false,
+      anchor: new THREE.Vector3(),
+      target: new THREE.Vector3(),
+      current: new THREE.Vector3(),
+      velocity: new THREE.Vector3()
+    };
+    const dollThreePhysics = {
+      grabbed: false,
+      anchor: new THREE.Vector3(),
+      target: new THREE.Vector3(),
+      current: new THREE.Vector3(),
+      velocity: new THREE.Vector3()
+    };
+    function updateZuDragToggle() {
+      zuDragToggle.textContent = `DRAG MODE: ${zuDragMode ? "ON" : "OFF"}`;
+      zuDragToggle.classList.toggle("on", zuDragMode);
+      zuDragToggle.setAttribute("aria-pressed", String(zuDragMode));
+    }
+    zuDragToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      zuDragMode = !zuDragMode;
+      zuPhysics.grabbed = false;
+      dollTwoPhysics.grabbed = false;
+      dollThreePhysics.grabbed = false;
+      if (!zuDragMode) {
+        zuPhysics.velocity.set(0, 0, 0);
+        dollTwoPhysics.velocity.set(0, 0, 0);
+        dollThreePhysics.velocity.set(0, 0, 0);
+      }
+      updateZuDragToggle();
+    });
+    updateZuDragToggle();
+
+    function updateDollsChaseToggle() {
+      dollsChaseToggle.textContent = `ALL DOLLS CHASE: ${dollsChaseEnabled ? "ON" : "OFF"}`;
+      dollsChaseToggle.classList.toggle("on", dollsChaseEnabled);
+      dollsChaseToggle.setAttribute("aria-pressed", String(dollsChaseEnabled));
+    }
+    dollsChaseToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      dollsChaseEnabled = !dollsChaseEnabled;
+      if (!dollsChaseEnabled) {
+        zuPhysics.velocity.set(0, 0, 0);
+        dollTwoPhysics.velocity.set(0, 0, 0);
+        dollThreePhysics.velocity.set(0, 0, 0);
+      }
+      updateDollsChaseToggle();
+    });
+    updateDollsChaseToggle();
+
+    function applyDollSizeToPose(pose) {
+      if (!pose.model || !pose.baseScale || !pose.basePosition) return;
+      pose.model.scale.copy(pose.baseScale).multiplyScalar(pose.size);
+      pose.model.position.y = pose.basePosition.y;
+      pose.model.updateMatrixWorld(true);
+      const bounds = new THREE.Box3().setFromObject(pose.model);
+      pose.model.position.y -= bounds.min.y;
+    }
+
+    function syncDollSizeControl() {
+      const target = dollSizeTarget.value;
+      const size = target === "all"
+        ? (dollSizeValues.doll_1 + dollSizeValues.doll_2 + dollSizeValues.doll_3) / 3
+        : dollSizeValues[target];
+      dollSizeInput.value = size.toFixed(2);
+      dollSizeValue.textContent = `${Math.round(size * 100)}%`;
+    }
+
+    function applyDollSize(value) {
+      const size = THREE.MathUtils.clamp(Number(value), .50, 3.00);
+      const targets = dollSizeTarget.value === "all" ? ["doll_1", "doll_2", "doll_3"] : [dollSizeTarget.value];
+      targets.forEach((name) => {
+        dollSizeValues[name] = size;
+        const pose = dollPoses[name];
+        pose.size = size;
+        applyDollSizeToPose(pose);
+      });
+      syncDollSizeControl();
+    }
+
+    dollSizeTarget.addEventListener("change", syncDollSizeControl);
+    dollSizeInput.addEventListener("input", () => applyDollSize(dollSizeInput.value));
+    syncDollSizeControl();
+
+    function setDollWorldXZ(pose, root, x, z) {
+      if (!pose.model) return;
+      const localTarget = new THREE.Vector3(x, 0, z);
+      root.worldToLocal(localTarget);
+      pose.model.position.x = localTarget.x;
+      pose.model.position.z = localTarget.z;
+    }
+
+    function updateDollPhysics(pose, root, physics, index, dt) {
+      if (!pose.model) return;
+      const rightStick = handControls.right;
+      const inputting = zuDragMode && rightStick.active;
+      const dragSpeed = 3.0;
+      const acceleration = 7.5;
+
+      if (inputting && !physics.grabbed) {
+        pose.model.getWorldPosition(physics.current);
+        physics.velocity.set(0, 0, 0);
+        physics.grabbed = true;
+      }
+      if (!inputting && physics.grabbed) {
+        physics.grabbed = false;
+        physics.velocity.multiplyScalar(.35);
+      }
+
+      if (inputting) {
+        forward.set(-Math.sin(yaw), 0, -Math.cos(yaw));
+        right.set(Math.cos(yaw), 0, -Math.sin(yaw));
+        const desiredVelocity = new THREE.Vector3()
+          .addScaledVector(right, rightStick.x)
+          .addScaledVector(forward, -rightStick.y)
+          .multiplyScalar(dragSpeed);
+        const blend = 1 - Math.exp(-acceleration * dt);
+        physics.velocity.lerp(desiredVelocity, blend);
+      } else if (dollsChaseEnabled) {
+        // Keep the dolls moving toward the player without ever entering the
+        // player's space. Opposite ring positions make the two dolls surround
+        // the player instead of stacking on top of each other.
+        const ringAngle = yaw + index * Math.PI;
+        const ringRadius = 1.35 + index * .18;
+        physics.target.set(
+          player.x + Math.sin(ringAngle) * ringRadius,
+          0,
+          player.z + Math.cos(ringAngle) * ringRadius
+        );
+        pose.model.getWorldPosition(physics.current);
+        const distance = physics.current.distanceTo(physics.target);
+        const desiredVelocity = new THREE.Vector3();
+        if (distance > .10) {
+          desiredVelocity.subVectors(physics.target, physics.current);
+          desiredVelocity.y = 0;
+          desiredVelocity.normalize().multiplyScalar(Math.min(1.65, distance * 2.2));
+        }
+        const blend = 1 - Math.exp(-5.5 * dt);
+        physics.velocity.lerp(desiredVelocity, blend);
+        const facingPlayer = Math.atan2(player.x - physics.current.x, player.z - physics.current.z);
+        pose.model.rotation.y = THREE.MathUtils.damp(pose.model.rotation.y, facingPlayer, 7, dt);
+      } else {
+        physics.velocity.multiplyScalar(Math.exp(-3.5 * dt));
+      }
+
+      pose.model.getWorldPosition(physics.current);
+      if (physics.velocity.lengthSq() > .000001) {
+        const next = physics.current.clone().addScaledVector(physics.velocity, dt);
+        next.x = THREE.MathUtils.clamp(next.x, -101, 101);
+        next.z = THREE.MathUtils.clamp(next.z, -101, 101);
+        setDollWorldXZ(pose, root, next.x, next.z);
+      }
+      const leanX = THREE.MathUtils.clamp(physics.velocity.z * .035, -.42, .42);
+      const leanZ = THREE.MathUtils.clamp(-physics.velocity.x * .035, -.42, .42);
+      pose.model.rotation.x = THREE.MathUtils.damp(pose.model.rotation.x, pose.pitch + leanX, 8, dt);
+      pose.model.rotation.z = THREE.MathUtils.damp(pose.model.rotation.z, leanZ, 8, dt);
+    }
+
+    function updateZuPhysics(dt) {
+      updateDollPhysics(zuPose, zuCellRoot, zuPhysics, 0, dt);
+      updateDollPhysics(dollTwoPose, dollTwoCellRoot, dollTwoPhysics, 1, dt);
+      updateDollPhysics(dollThreePose, dollThreeCellRoot, dollThreePhysics, 2, dt);
+    }
+
+    const settingsViews = [...document.querySelectorAll("[data-settings-view]")];
+    function showSettingsView(viewName) {
+      settingsViews.forEach((view) => { view.hidden = view.dataset.settingsView !== viewName; });
+    }
+    document.querySelectorAll("[data-settings-view-target]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        showSettingsView(button.dataset.settingsViewTarget);
+      });
+    });
+    document.querySelector("[data-settings-close]").addEventListener("click", (event) => {
+      event.stopPropagation();
+      settingsPanel.classList.remove("open");
+      showSettingsView("home");
+    });
+    settingsButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const opening = !settingsPanel.classList.contains("open");
+      settingsPanel.classList.toggle("open", opening);
+      if (opening) showSettingsView("home");
+    });
+    settingsPanel.addEventListener("pointerdown", (event) => event.stopPropagation());
+
+    // Cell 1 model is embedded as a complete USDZ archive. Its embedded
+    // body, clothing, hair, eye, normal-map, and outfit textures are preserved.
+    const EMBEDDED_DOLL2_USDZ = __asset("a09");
+
+    const EMBEDDED_ZU_USDZ = __asset("a10");
+
+    // Cell 2's resident, embedded as a complete USDZ archive.
+    const EMBEDDED_DOLL3_USDZ = __asset("a11");
+
+    function setupDollModel(loadedModel, pose, root, displayName, spawnX = 0) {
+      const doll = loadedModel;
+      const bounds = new THREE.Box3().setFromObject(doll);
+      const size = bounds.getSize(new THREE.Vector3());
+      const center = bounds.getCenter(new THREE.Vector3());
+      const height = Math.max(size.y, .001);
+      doll.position.sub(center);
+      doll.scale.setScalar(pose.targetHeight / height);
+      doll.position.y = pose.targetHeight / 2;
+      doll.rotation.y = Math.PI;
+
+      // Final world-space safety fit keeps either USDZ asset visible and
+      // standing on the cell floor even when it contains nested transforms.
+      doll.updateMatrixWorld(true);
+      const fittedBounds = new THREE.Box3().setFromObject(doll);
+      const fittedHeight = Math.max(fittedBounds.getSize(new THREE.Vector3()).y, .001);
+      doll.scale.multiplyScalar(pose.targetHeight / fittedHeight);
+      doll.updateMatrixWorld(true);
+      const floorBounds = new THREE.Box3().setFromObject(doll);
+      doll.position.y -= floorBounds.min.y;
+      doll.position.x += spawnX;
+      pose.baseScale = doll.scale.clone();
+      pose.basePosition = doll.position.clone();
+      pose.size = dollSizeValues[displayName] ?? 1;
+
+      doll.traverse((part) => {
+        part.visible = true;
+        if (!part.isMesh) return;
+        part.castShadow = true;
+        part.receiveShadow = true;
+        part.frustumCulled = false;
+        const materials = Array.isArray(part.material) ? part.material : [part.material];
+        materials.forEach((material) => {
+          if (!material) return;
+          material.visible = true;
+          material.transparent = false;
+          material.opacity = 1;
+          material.depthWrite = true;
+          material.side = THREE.DoubleSide;
+          if (material.map) material.map.colorSpace = THREE.SRGBColorSpace;
+          if (material.normalMap) material.normalMap.colorSpace = THREE.NoColorSpace;
+          if (!material.map && material.color) material.color.set("#d4b0a0");
+          material.needsUpdate = true;
+        });
+      });
+      doll.name = displayName;
+      doll.userData.displayName = displayName;
+      doll.updateMatrixWorld(true);
+      const dollBounds = new THREE.Box3().setFromObject(doll);
+      const titleWorldPosition = new THREE.Vector3(
+        (dollBounds.min.x + dollBounds.max.x) / 2,
+        dollBounds.max.y + 1.80,
+        (dollBounds.min.z + dollBounds.max.z) / 2
+      );
+      doll.worldToLocal(titleWorldPosition);
+      const titleCanvas = document.createElement("canvas");
+      titleCanvas.width = 512;
+      titleCanvas.height = 128;
+      const titleContext = titleCanvas.getContext("2d");
+      titleContext.fillStyle = "rgba(13, 17, 16, .84)";
+      titleContext.strokeStyle = "rgba(232, 223, 182, .7)";
+      titleContext.lineWidth = 5;
+      titleContext.beginPath();
+      titleContext.roundRect(5, 5, 502, 118, 22);
+      titleContext.fill();
+      titleContext.stroke();
+      titleContext.fillStyle = "#f2e8c4";
+      titleContext.font = "700 46px Georgia, serif";
+      titleContext.textAlign = "center";
+      titleContext.textBaseline = "middle";
+      titleContext.fillText(displayName, 256, 64);
+      const titleTexture = new THREE.CanvasTexture(titleCanvas);
+      titleTexture.colorSpace = THREE.SRGBColorSpace;
+      const dollTitle = new THREE.Sprite(new THREE.SpriteMaterial({ map: titleTexture, transparent: true, depthTest: false, depthWrite: false }));
+      dollTitle.name = `${displayName}_title`;
+      const titleScale = 1 / Math.max(doll.getWorldScale(new THREE.Vector3()).y, .001);
+      dollTitle.scale.set(1.05 * titleScale, .27 * titleScale, 1);
+      dollTitle.position.copy(titleWorldPosition);
+      dollTitle.renderOrder = 10;
+      doll.add(dollTitle);
+      pose.model = doll;
+      root.add(doll);
+      applyDollSizeToPose(pose);
+    }
+
+    function loadZuIntoCellOne() {
+      const loader = new USDLoader();
+      loader.load(EMBEDDED_ZU_USDZ, (zu) => {
+        setupDollModel(zu, zuPose, zuCellRoot, "doll_1", 0);
+      }, undefined, (error) => {
+        console.warn("doll_1 could not be loaded into cell 1.", error);
+      });
+    }
+
+    function loadDollTwoIntoCellOne() {
+      const loader = new USDLoader();
+      loader.load(EMBEDDED_DOLL2_USDZ, (dollTwo) => {
+        setupDollModel(dollTwo, dollTwoPose, dollTwoCellRoot, "doll_2", 1.05);
+      }, undefined, (error) => {
+        console.warn("doll_2 could not be loaded into cell 1.", error);
+      });
+    }
+
+    function loadDollThreeIntoCellTwo() {
+      const loader = new USDLoader();
+      loader.load(EMBEDDED_DOLL3_USDZ, (dollThree) => {
+        setupDollModel(dollThree, dollThreePose, dollThreeCellRoot, "doll_3", 0);
+      }, undefined, (error) => {
+        console.warn("doll_3 could not be loaded into cell 2.", error);
+      });
+    }
+
+    function loadEmeraldDagger() {
+      const daggerTexture = textureLoader.load(ASSETS.daggerTexture);
+      daggerTexture.colorSpace = THREE.SRGBColorSpace;
+      daggerTexture.flipY = false;
+      const loader = new OBJLoader();
+      loader.load(ASSETS.daggerObj, (dagger) => {
+        const bounds = new THREE.Box3().setFromObject(dagger);
+        const size = bounds.getSize(new THREE.Vector3());
+        const center = bounds.getCenter(new THREE.Vector3());
+        dagger.position.sub(center);
+        const daggerFit = new THREE.Group();
+        daggerFit.scale.setScalar(.42 / Math.max(size.x, size.y, size.z));
+        daggerFit.rotation.set(-Math.PI / 2, 0, 0);
+        daggerFit.position.z = -.12;
+        daggerFit.add(dagger);
+        dagger.traverse((part) => {
+          if (!part.isMesh) return;
+          part.material = new THREE.MeshStandardMaterial({ map: daggerTexture, color: "#c6cbca", roughness: .38, metalness: .74 });
+          part.castShadow = true;
+          part.frustumCulled = false;
+        });
+        weaponMount.add(daggerFit);
+      }, undefined, (error) => {
+        console.warn("Dagger 4 could not be loaded.", error);
+      });
+    }
+
+    const wallMaterial = new THREE.MeshStandardMaterial({ color: "#a3a49c", roughness: .94, metalness: .01, side: THREE.DoubleSide });
+    const floorMaterial = new THREE.MeshStandardMaterial({
+      color: "#625a4e", roughness: 1, metalness: 0, side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1
+    });
+    let modelReady = false;
+    let texturesReady = false;
+    const loadingManager = new THREE.LoadingManager();
+    loadingManager.onLoad = () => { texturesReady = true; maybeStartGame(); };
+    const textureLoader = new THREE.TextureLoader(loadingManager);
+    function loadTexture(url, color = false) {
+      const t = textureLoader.load(url);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      if (color) t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    }
+    let assetsStarted = false;
+
+    const loading = document.querySelector("#loading");
+    let loadStarted = 0;
+    const models = [];
+    const gateRefs = [];
+    const collisionMeshes = [];
+    const raycaster = new THREE.Raycaster();
+    const rayOrigin = new THREE.Vector3();
+    const rayDirection = new THREE.Vector3();
+    const gateNames = new Set(["Cube.011_Cube.013", "Cube.057_Cube.063", "Cube.059_Cube.062"]);
+    // The imported OBJ contains two of the door meshes in their partially-open
+    // positions. All three cell entrances share the wall line at this depth.
+    const cellWallZ = 2.67;
+
+    function maybeStartGame() {
+      if (!modelReady || !texturesReady) return;
+      const remaining = Math.max(0, 1800 - (performance.now() - loadStarted));
+      setTimeout(() => loading.classList.add("done"), remaining);
+    }
+
+    function prepareModel(model, index) {
+      model.position.set((index - 3.5) * 19.5, .025, 0);
+      model.traverse((child) => {
+        if (!child.isMesh) return;
+        const sourceName = child.material?.name || "";
+        const objectName = child.name || "";
+        const isFloorMesh = sourceName.toLowerCase().includes("001") || objectName.toLowerCase().includes("plane");
+        child.geometry.computeVertexNormals();
+        child.geometry.computeBoundingBox();
+        child.material = isFloorMesh
+          ? floorMaterial
+          : wallMaterial;
+        child.material.side = THREE.DoubleSide;
+        child.castShadow = !isFloorMesh;
+        child.receiveShadow = true;
+        if (!objectName.toLowerCase().includes("plane")) collisionMeshes.push(child);
+        if (gateNames.has(objectName)) {
+          const box = child.geometry.boundingBox;
+          const size = box.getSize(new THREE.Vector3());
+          const center = box.getCenter(new THREE.Vector3());
+          const oldPosition = child.position.clone();
+
+          // The exported doors are at different swing angles (roughly 90,
+          // -50 and 0 degrees). Flatten each one around its own center so the
+          // initial pose is parallel to the cell wall instead of tilted out.
+          const positions = child.geometry.attributes.position;
+          let meanX = 0;
+          let meanZ = 0;
+          for (let i = 0; i < positions.count; i++) {
+            meanX += positions.getX(i);
+            meanZ += positions.getZ(i);
+          }
+          meanX /= positions.count;
+          meanZ /= positions.count;
+          let xx = 0;
+          let xz = 0;
+          let zz = 0;
+          for (let i = 0; i < positions.count; i++) {
+            const dx = positions.getX(i) - meanX;
+            const dz = positions.getZ(i) - meanZ;
+            xx += dx * dx;
+            xz += dx * dz;
+            zz += dz * dz;
+          }
+          const swingAngle = .5 * Math.atan2(2 * xz, xx - zz);
+          if (Math.abs(swingAngle) > .001) {
+            child.geometry = child.geometry.clone();
+            child.geometry.translate(-center.x, 0, -center.z);
+            child.geometry.rotateY(-swingAngle);
+            child.geometry.translate(center.x, 0, center.z);
+            child.geometry.computeVertexNormals();
+            child.geometry.computeBoundingBox();
+          }
+
+          const alignedBox = child.geometry.boundingBox;
+          const alignedCenter = alignedBox.getCenter(new THREE.Vector3());
+          const alignedSize = alignedBox.getSize(new THREE.Vector3());
+          // Keep every door flush with the cell wall at rest. The left and
+          // right door meshes were exported with an extra Z offset, which is
+          // why they appeared partially open on the first frame.
+          const wallLevelOffsetZ = cellWallZ - alignedCenter.z;
+          const closedPosition = oldPosition.clone();
+          closedPosition.z += wallLevelOffsetZ;
+
+          // Doors must disappear into the wall parallel to its face. The
+          // previous size-based choice sent the side doors along Z, pulling
+          // them out from the wall. X is the horizontal in-wall direction;
+          // use the nearest outer side as the opening direction.
+          const slideAxis = new THREE.Vector3(1, 0, 0);
+          const side = alignedCenter.x >= 0 ? 1 : -1;
+          const slideDistance = Math.max(alignedSize.x, alignedSize.z) * 1.35 + .35;
+          gateRefs.push({
+            node: child,
+            root: model,
+            centerX: closedPosition.x + alignedCenter.x,
+            centerZ: closedPosition.z + alignedCenter.z,
+            closedPosition,
+            slideAxis,
+            slideDistance: slideDistance * side,
+            open: 0
+          });
+        }
+      });
+      scene.add(model);
+      models.push(model);
+    }
+
+    function loadPrison() {
+      const loader = new OBJLoader(loadingManager);
+      loader.load(ASSETS.obj, (object) => {
+        prison = object;
+        const rawModels = [];
+        for (let i = 0; i < 8; i++) rawModels.push(i === 0 ? object : object.clone(true));
+        rawModels.forEach((model, index) => prepareModel(model, index));
+        modelMixers = [];
+        const clips = object.animations || [];
+        if (clips.length) {
+          models.forEach((model) => {
+            const modelMixer = new THREE.AnimationMixer(model);
+            clips.forEach((clip) => modelMixer.clipAction(clip).play());
+            modelMixers.push(modelMixer);
+          });
+        }
+        scene.updateMatrixWorld(true);
+        modelReady = true;
+        maybeStartGame();
+      }, undefined, () => { modelReady = true; maybeStartGame(); });
+    }
+
+    function startLoading() {
+      if (assetsStarted) return;
+      assetsStarted = true;
+      loadStarted = performance.now();
+      loading.classList.add("active");
+      wallMaterial.map = loadTexture(ASSETS.wallColor, true);
+      wallMaterial.roughnessMap = loadTexture(ASSETS.wallRough);
+      floorMaterial.map = loadTexture(ASSETS.floorColor, true);
+      floorMaterial.roughnessMap = loadTexture(ASSETS.floorRough);
+      wallMaterial.needsUpdate = true;
+      floorMaterial.needsUpdate = true;
+      loadEmeraldDagger();
+      loadZuIntoCellOne();
+      loadDollTwoIntoCellOne();
+      loadDollThreeIntoCellTwo();
+      loadPrison();
+    }
+
+    document.querySelector("#enter").addEventListener("click", () => {
+      document.querySelector("#welcome").classList.add("hidden");
+      startLoading();
+    });
+
+
+    function updatePlayerVertical(dt) {
+      const crouchInput = actionState.crouch || keys.has("KeyC") || keys.has("ControlLeft") || keys.has("ControlRight");
+      isCrouching = movementSettings.crouchEnabled && crouchInput && !movementSettings.flyAround;
+      if (movementSettings.flyAround) {
+        const verticalInput = (actionState.jump || keys.has("Space") ? 1 : 0) - (actionState.crouch || keys.has("KeyX") ? 1 : 0);
+        player.y += verticalInput * movementSettings.runSpeed * dt;
+        jumpQueued = false;
+        verticalVelocity = 0;
+        isGrounded = false;
+        return;
+      }
+
+      const groundHeight = isCrouching
+        ? playerEyeHeight * (movementSettings.crawlMode ? .38 : .62)
+        : playerEyeHeight;
+      if (jumpQueued && movementSettings.jumpEnabled && isGrounded && !isCrouching) {
+        verticalVelocity = Math.sqrt(2 * movementSettings.gravity * movementSettings.jumpHeight);
+        isGrounded = false;
+      }
+      jumpQueued = false;
+      verticalVelocity -= movementSettings.gravity * dt;
+      player.y += verticalVelocity * dt;
+      if (player.y <= groundHeight) {
+        player.y = groundHeight;
+        verticalVelocity = 0;
+        isGrounded = true;
+      } else {
+        isGrounded = false;
+      }
+    }
+
+    function keepPlayerInArea(pos) {
+      pos.x = THREE.MathUtils.clamp(pos.x, -101, 101);
+      pos.z = THREE.MathUtils.clamp(pos.z, -101, 101);
+    }
+
+    function updateGate(dt) {
+      for (const ref of gateRefs) {
+        const doorX = ref.root.position.x + ref.centerX;
+        const doorZ = ref.root.position.z + ref.centerZ;
+        const nearGate = Math.hypot(player.x - doorX, player.z - doorZ) < 4.2;
+        ref.open = THREE.MathUtils.damp(ref.open, nearGate ? 1 : 0, 8, dt);
+        ref.node.position.copy(ref.closedPosition).addScaledVector(ref.slideAxis, ref.open * ref.slideDistance);
+      }
+      for (const model of models) model.updateMatrixWorld(true);
+    }
+
+    function blocked(dx, dz) {
+      const length = Math.hypot(dx, dz);
+      if (length < .00001 || collisionMeshes.length === 0) return false;
+      rayOrigin.copy(player);
+      rayOrigin.y = 1.2;
+      rayDirection.set(dx / length, 0, dz / length);
+      raycaster.set(rayOrigin, rayDirection);
+      const hits = raycaster.intersectObjects(collisionMeshes, false);
+      for (const hit of hits) {
+        if (hit.distance >= length + .42) break;
+        const clearGate = gateRefs.some((ref) => {
+          if (ref.open < .78) return false;
+          const gateX = ref.root.position.x + ref.centerX;
+          const gateZ = ref.root.position.z + ref.centerZ;
+          return Math.abs(hit.point.x - gateX) < 1.15 && Math.abs(hit.point.z - gateZ) < 1.15;
+        });
+        if (!clearGate) return true;
+      }
+      return false;
+    }
+
+    function movePlayer(dx, dz) {
+      if (movementSettings.flyAround) {
+        player.x += dx;
+        player.z += dz;
+        return;
+      }
+      if (Math.abs(dx) > .00001 && !blocked(dx, 0)) player.x += dx;
+      if (Math.abs(dz) > .00001 && !blocked(0, dz)) player.z += dz;
+    }
+
+    const joystick = { active: false, pointerId: null, x: 0, y: 0 };
+    const joy = document.querySelector("#joystick");
+    const knob = document.querySelector("#knob");
+    function updateJoystick(e) {
+      const r = joy.getBoundingClientRect();
+      const max = Math.max(1, Math.min(r.width, r.height) / 2 - 18);
+      let x = e.clientX - (r.left + r.width / 2);
+      let y = e.clientY - (r.top + r.height / 2);
+      const len = Math.hypot(x, y);
+      if (len > max) { x = x / len * max; y = y / len * max; }
+      const nx = x / max, ny = y / max;
+      const dead = .035, magnitude = Math.hypot(nx, ny);
+      if (magnitude <= dead) {
+        joystick.x = 0; joystick.y = 0;
+      } else {
+        const scaled = (magnitude - dead) / (1 - dead);
+        joystick.x = nx / magnitude * scaled;
+        joystick.y = ny / magnitude * scaled;
+      }
+      knob.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+    }
+    joy.addEventListener("pointerdown", (e) => { e.preventDefault(); joystick.active = true; joystick.pointerId = e.pointerId; joy.setPointerCapture(e.pointerId); updateJoystick(e); });
+    joy.addEventListener("pointermove", (e) => { if (joystick.active && e.pointerId === joystick.pointerId) updateJoystick(e); });
+    function resetJoystick() { joystick.active = false; joystick.pointerId = null; joystick.x = joystick.y = 0; knob.style.transform = "translate(-50%,-50%)"; }
+    joy.addEventListener("pointerup", resetJoystick); joy.addEventListener("pointercancel", resetJoystick); joy.addEventListener("lostpointercapture", resetJoystick);
+
+    const handControls = {
+      left: { active: false, pointerId: null, x: 0, y: 0 },
+      right: { active: false, pointerId: null, x: 0, y: 0 }
+    };
+    function bindHandJoystick(rootId, knobId, state) {
+      const root = document.querySelector(rootId);
+      const controlKnob = document.querySelector(knobId);
+      function update(e) {
+        const r = root.getBoundingClientRect();
+        const max = Math.max(1, Math.min(r.width, r.height) / 2 - 16);
+        let x = e.clientX - (r.left + r.width / 2);
+        let y = e.clientY - (r.top + r.height / 2);
+        const len = Math.hypot(x, y);
+        if (len > max) { x = x / len * max; y = y / len * max; }
+        state.x = x / max;
+        state.y = y / max;
+        controlKnob.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+      }
+      function reset() {
+        state.active = false; state.pointerId = null; state.x = state.y = 0;
+        controlKnob.style.transform = "translate(-50%,-50%)";
+      }
+      root.addEventListener("pointerdown", (e) => { e.preventDefault(); state.active = true; state.pointerId = e.pointerId; root.setPointerCapture(e.pointerId); update(e); });
+      root.addEventListener("pointermove", (e) => { if (state.active && e.pointerId === state.pointerId) update(e); });
+      root.addEventListener("pointerup", reset);
+      root.addEventListener("pointercancel", reset);
+      root.addEventListener("lostpointercapture", reset);
+    }
+    bindHandJoystick("#left-hand-joystick", "#left-hand-knob", handControls.left);
+    bindHandJoystick("#right-hand-joystick", "#right-hand-knob", handControls.right);
+
+    function updateHands(dt) {
+      const leftForward = THREE.MathUtils.clamp(-handControls.left.y + (keys.has("KeyQ") ? 1 : 0) - (keys.has("KeyZ") ? 1 : 0), -1, 1);
+      const rightForward = THREE.MathUtils.clamp(-handControls.right.y + (keys.has("KeyE") ? 1 : 0) - (keys.has("KeyC") ? 1 : 0), -1, 1);
+      const leftHome = leftHand.userData.home;
+      const rightHome = rightHand.userData.home;
+      const leftRest = leftHand.userData.restRotation;
+      const rightRest = rightHand.userData.restRotation;
+      leftHand.position.x = THREE.MathUtils.damp(leftHand.position.x, leftHome.x + handControls.left.x * .12, 13, dt);
+      leftHand.position.z = THREE.MathUtils.damp(leftHand.position.z, leftHome.z - leftForward * .42, 13, dt);
+      leftHand.rotation.x = THREE.MathUtils.damp(leftHand.rotation.x, leftRest.x - leftForward * .45, 13, dt);
+      leftHand.rotation.z = THREE.MathUtils.damp(leftHand.rotation.z, leftRest.z - handControls.left.x * .25, 13, dt);
+      rightHand.position.x = THREE.MathUtils.damp(rightHand.position.x, rightHome.x + handControls.right.x * .12, 13, dt);
+      rightHand.position.z = THREE.MathUtils.damp(rightHand.position.z, rightHome.z - rightForward * .34, 13, dt);
+      rightHand.rotation.x = THREE.MathUtils.damp(rightHand.rotation.x, rightRest.x - rightForward * .58, 13, dt);
+      rightHand.rotation.z = THREE.MathUtils.damp(rightHand.rotation.z, rightRest.z + handControls.right.x * .5, 13, dt);
+    }
+
+    let lookPointer = null, lastLookX = 0, lastLookY = 0;
+    canvas.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "mouse" && e.clientX > innerWidth * .38) {
+        lookPointer = e.pointerId; lastLookX = e.clientX; lastLookY = e.clientY; canvas.setPointerCapture(e.pointerId);
+      }
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      if (lookPointer !== e.pointerId) return;
+      const dx = e.clientX - lastLookX, dy = e.clientY - lastLookY;
+      lastLookX = e.clientX; lastLookY = e.clientY;
+      yaw -= dx * .006; pitch -= dy * .006;
+      pitch = THREE.MathUtils.clamp(pitch, -1.45, 1.45);
+    });
+    function stopLook(e) { if (lookPointer === e.pointerId) lookPointer = null; }
+    canvas.addEventListener("pointerup", stopLook); canvas.addEventListener("pointercancel", stopLook); canvas.addEventListener("lostpointercapture", stopLook);
+
+    addEventListener("keydown", (e) => {
+      keys.add(e.code);
+      if (e.code === "Space" && !e.repeat) jumpQueued = true;
+      if (["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code)) e.preventDefault();
+    });
+    addEventListener("keyup", (e) => keys.delete(e.code));
+    document.addEventListener("mousemove", (e) => {
+      if (document.pointerLockElement === canvas) { yaw -= e.movementX * .0025; pitch -= e.movementY * .0025; pitch = THREE.MathUtils.clamp(pitch, -1.45, 1.45); }
+    });
+    canvas.addEventListener("click", () => { if (matchMedia("(pointer:fine)").matches) canvas.requestPointerLock?.(); });
+
+    function inputVector() {
+      let x = joystick.x, y = -joystick.y;
+      if (keys.has("KeyA") || keys.has("ArrowLeft")) x -= 1;
+      if (keys.has("KeyD") || keys.has("ArrowRight")) x += 1;
+      if (keys.has("KeyW") || keys.has("ArrowUp")) y += 1;
+      if (keys.has("KeyS") || keys.has("ArrowDown")) y -= 1;
+      const len = Math.hypot(x, y);
+      if (len > 1) { x /= len; y /= len; }
+      return { x, y };
+    }
+    function frame() {
+      requestAnimationFrame(frame);
+      const dt = Math.min(clock.getDelta(), .05);
+      modelMixers.forEach((activeMixer) => activeMixer.update(dt));
+      updateHands(dt);
+      updateZuPhysics(dt);
+      updateWind(dt);
+      updateWeatherEffects(dt);
+      updatePlayerVertical(dt);
+      updateGate(dt);
+      const input = inputVector();
+      forward.set(-Math.sin(yaw), 0, -Math.cos(yaw));
+      right.set(Math.cos(yaw), 0, -Math.sin(yaw));
+      wish.set(0, 0, 0).addScaledVector(forward, input.y).addScaledVector(right, input.x);
+      const sprinting = movementSettings.sprintEnabled
+        && (actionState.sprint || keys.has("ShiftLeft") || keys.has("ShiftRight"))
+        && !isCrouching;
+      const targetSpeed = movementSettings.flyAround
+        ? movementSettings.runSpeed
+        : isCrouching
+          ? movementSettings.crouchSpeed * (movementSettings.crawlMode ? .55 : 1)
+          : sprinting
+            ? movementSettings.runSpeed
+            : movementSettings.walkSpeed;
+      velocity.copy(wish).multiplyScalar(targetSpeed);
+      movePlayer(velocity.x * dt, velocity.z * dt);
+      keepPlayerInArea(player);
+      const inputAmount = Math.min(1, Math.hypot(input.x, input.y));
+      walkBlend = THREE.MathUtils.damp(walkBlend, inputAmount, 12, dt);
+      if (walkBlend > .001) walkPhase += dt * (7.5 + inputAmount * 3.5);
+      const bobY = Math.abs(Math.sin(walkPhase)) * .045 * walkBlend;
+      const bobX = Math.cos(walkPhase * .5) * .022 * walkBlend;
+      if (cameraSettings.firstPerson) {
+        camera.position.copy(player).addScaledVector(right, bobX);
+        camera.position.y += bobY;
+        camera.rotation.set(
+          pitch + Math.sin(walkPhase) * .004 * walkBlend,
+          yaw + Math.cos(walkPhase) * .003 * walkBlend,
+          Math.sin(walkPhase * .5) * .002 * walkBlend
+        );
+      } else {
+        camera.position.copy(player).addScaledVector(forward, -cameraSettings.povDistance);
+        camera.position.y += .72 + bobY;
+        camera.rotation.set(
+          pitch + Math.sin(walkPhase) * .003 * walkBlend,
+          yaw + Math.cos(walkPhase) * .002 * walkBlend,
+          0
+        );
+      }
+      renderer.render(scene, camera);
+    }
+    frame();
+    addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); });
+  </script>
+</body>
+</html>
